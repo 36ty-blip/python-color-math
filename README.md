@@ -3,11 +3,11 @@
 > Pure Python semantic LaTeX and MathJax colorizer for Obsidian Markdown notes, KaTeX documents, and scientific workflows. Zero dependencies.
 
 [![CI](https://github.com/36ty-blip/python-color-math/actions/workflows/ci.yml/badge.svg)](https://github.com/36ty-blip/python-color-math/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/color-math.svg)](https://pypi.org/project/color-math/)
+[![PyPI](https://img.shields.io/pypi/v/python-color-math.svg)](https://pypi.org/project/python-color-math/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python: 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 
-`color-math` is a fast, standalone command-line tool and Python library that automatically parses LaTeX and MathJax expressions and wraps elements in semantic `\textcolor{...}{...}` annotations. It works across plain Markdown, Obsidian notes, Quarto documents, Jupyter notebooks, and raw LaTeX files without modifying surrounding prose or code blocks.
+`python-color-math` is a fast, standalone command-line tool and Python library that automatically parses LaTeX and MathJax expressions and wraps elements in semantic `\textcolor{...}{...}` annotations. It works across plain Markdown, Obsidian notes, Quarto documents, Jupyter notebooks, and raw LaTeX files without modifying surrounding prose or code blocks.
 
 > [!NOTE]
 > **Looking for the Obsidian Plugin?** Check out [obsidian-color-math](https://github.com/36ty-blip/obsidian-color-math) for real-time live preview math coloring directly inside Obsidian!
@@ -36,7 +36,7 @@
 Install from PyPI:
 
 ```bash
-pip install color-math
+pip install python-color-math
 ```
 
 Or install from source:
