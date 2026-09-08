@@ -1,0 +1,6 @@
+include LICENSE
+include README.md
+include pyproject.toml
+include .pre-commit-hooks.yaml
+include color_math/py.typed
+recursive-include color_math *.py

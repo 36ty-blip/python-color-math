@@ -32,7 +32,7 @@ from .parsers.math_parser import describe_math_blocks
 from .self_test import run_self_test
 from .tutorial import run_tutorial
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 SUPPORTED_EXTENSIONS = {".md", ".markdown", ".qmd", ".ipynb", ".tex", ".latex"}
 DEFAULT_EXCLUDES = {
     ".git",
