@@ -109,17 +109,22 @@ class GUITests(unittest.TestCase):
         sub_window.withdraw()
         try:
             app = ColorMathApp(sub_window)
-            app.preset_var.set("extended")
+            self.assertEqual(app.preset_var.get(), "all")
+            opts_all = app._collect_current_options()
+            self.assertTrue(opts_all.color_units)
+            self.assertTrue(opts_all.variable_data_flow)
+
+            app.preset_var.set("minimal")
             app._on_preset_changed()
 
-            opts = app._collect_current_options()
-            self.assertTrue(opts.color_units)
-            self.assertTrue(opts.color_differentials)
-            self.assertTrue(opts.rainbow_delimiters)
-            self.assertTrue(opts.color_braket)
-            self.assertTrue(opts.color_dimensionless)
-            self.assertTrue(opts.enable_taxonomy)
-            self.assertFalse(opts.variable_data_flow)
+            opts_min = app._collect_current_options()
+            self.assertFalse(opts_min.color_units)
+            self.assertFalse(opts_min.color_differentials)
+            self.assertFalse(opts_min.rainbow_delimiters)
+            self.assertFalse(opts_min.color_braket)
+            self.assertFalse(opts_min.color_dimensionless)
+            self.assertFalse(opts_min.enable_taxonomy)
+            self.assertFalse(opts_min.variable_data_flow)
         finally:
             sub_window.destroy()
 

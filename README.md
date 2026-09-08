@@ -88,7 +88,7 @@ color-math "$$\frac{d}{dx} x^2 = 2x$$"
 | **Unified Diff** | `color-math note.md --diff` | Inspect exact line changes |
 | **Linter / CI Mode** | `color-math notes/ -r --check` | Exit `0` if clean, `1` if notes need coloring |
 | **Curated Themes** | `color-math note.md --theme catppuccin -w` | Select `default`, `catppuccin`, `nord`, or `light` |
-| **Feature Preset** | `color-math note.md --preset extended -w` | Presets: `minimal`, `extended`, `all` |
+| **Feature Preset** | `color-math note.md --preset minimal -w` | Presets: `all` (default), `minimal` |
 | **Custom Colors** | `color-math note.md -c unit=#73daca -w` | Override any of 12 individual color roles |
 | **Reset Palette** | `color-math --reset-colors` | Restore factory Tokyo Night palette |
 | **Inspect Colors** | `color-math --show-colors` | Display current active palette and roles |
@@ -99,7 +99,7 @@ color-math "$$\frac{d}{dx} x^2 = 2x$$"
 
 ## 🧠 Engine Features & Disambiguation
 
-Control recognition features with `--preset {minimal,extended,all}` or individual flags:
+Control recognition features with `--preset {all,minimal}` (default: `all`) or individual flags:
 
 - **Calculus Differentials (`--differentials`)**: Disambiguates `dx`, `dt`, `d\theta`, and derivatives (`\frac{d}{dx}`, `\frac{\partial \psi}{\partial t}`) while leaving standalone distance variables `$d$` untouched.
 - **Physical Units (`--units`)**: Recognizes metric prefixes and unit compounds (`\mu m`, `m/s`, `kg`, `nm`).

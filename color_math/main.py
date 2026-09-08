@@ -182,12 +182,11 @@ def build_parser() -> argparse.ArgumentParser:
     # Engine Feature Presets & Flags (ColorMathOptions)
     parser.add_argument(
         "--preset",
-        choices=["minimal", "extended", "all"],
+        choices=["all", "minimal", "extended"],
         default="all",
         help=(
-            "Feature preset: 'all' (default: all features enabled including variable data-flow), "
-            "'extended' (Obsidian plugin standard: taxonomy, delimiters, units, differentials, braket, dimensionless), "
-            "or 'minimal' (basic function/derivative coloring)."
+            "Feature preset: 'all' (default: full engine with all features enabled) "
+            "or 'minimal' (basic function/derivative coloring only)."
         ),
     )
     parser.add_argument(

@@ -246,7 +246,7 @@ class ColorMathApp:
         preset_combo = ttk.Combobox(
             preset_row,
             textvariable=self.preset_var,
-            values=["minimal", "extended", "all"],
+            values=["all", "minimal"],
             state="readonly",
             width=12,
         )
@@ -356,12 +356,10 @@ class ColorMathApp:
 
     def _on_preset_changed(self, event: object = None) -> None:
         preset = self.preset_var.get()
-        if preset == "extended":
-            opts = ColorMathOptions.extended()
-        elif preset == "all":
-            opts = ColorMathOptions.all_enabled()
-        else:
+        if preset == "minimal":
             opts = ColorMathOptions()
+        else:
+            opts = ColorMathOptions.all_enabled()
 
         self.opt_units.set(opts.color_units)
         self.opt_differentials.set(opts.color_differentials)

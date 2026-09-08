@@ -155,9 +155,9 @@ def run_tutorial(input_fn: Callable[[], str] = input) -> int:
     print(f"\n  {GREEN}2. Check if any notes need coloring (Linter / CI mode):{RESET}")
     print(f"     {CMD}color-math{RESET} {ARG}notes/{RESET} {FLAG}-r --check{RESET}")
     print(f"     {DIM}(Returns exit code 0 if all clean, 1 if notes need formatting){RESET}")
-    print(f"\n  {CYAN}3. Advanced feature presets:{RESET}")
-    print(f"     {CMD}color-math{RESET} {ARG}note.md{RESET} {FLAG}--preset extended -w{RESET}")
-    print(f"     {DIM}(Enables physical units, differentials, braket, & rainbow brackets){RESET}")
+    print(f"\n  {CYAN}3. Feature presets (all vs minimal):{RESET}")
+    print(f"     {CMD}color-math{RESET} {ARG}note.md{RESET} {FLAG}--preset minimal -w{RESET}")
+    print(f"     {DIM}(Default is 'all'; use 'minimal' for lightweight core coloring){RESET}")
 
     deep_4 = (
         "🔍 Supported File Formats:\n"
