@@ -1,5 +1,7 @@
 from __future__ import annotations
 import json
+import os
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -438,9 +440,25 @@ def default_config_dict() -> dict[str, object]:
     }
 
 
+def get_global_config_path() -> Path | None:
+    """Return platform-appropriate XDG / AppData user configuration path."""
+    if sys.platform == "win32":
+        app_data = os.environ.get("APPDATA")
+        if app_data:
+            return Path(app_data) / "color-math" / "config.json"
+    else:
+        xdg_config = os.environ.get("XDG_CONFIG_HOME")
+        if xdg_config:
+            return Path(xdg_config) / "color-math" / "config.json"
+        home = os.environ.get("HOME")
+        if home:
+            return Path(home) / ".config" / "color-math" / "config.json"
+    return None
+
+
 def load_config(path: Path | None = None) -> tuple[dict[str, str], ColorMathOptions]:
     """
-    Load configuration from path or look for local '.colormath.json'.
+    Load configuration from path, local '.colormath.json', or global user config.
     Returns (palette_dict, ColorMathOptions).
     """
     target = path
@@ -448,6 +466,10 @@ def load_config(path: Path | None = None) -> tuple[dict[str, str], ColorMathOpti
         local_candidate = Path(".colormath.json")
         if local_candidate.exists():
             target = local_candidate
+        else:
+            global_candidate = get_global_config_path()
+            if global_candidate and global_candidate.exists():
+                target = global_candidate
 
     if target is None or not target.exists():
         return dict(DEFAULT_COLORS), ColorMathOptions()

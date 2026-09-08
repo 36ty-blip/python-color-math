@@ -191,15 +191,117 @@ class CLITests(unittest.TestCase):
         self.assertIn("Welcome to Python Color Math", output)
         self.assertIn("Chapter 1", output)
 
-    def test_options_preset_extended(self) -> None:
-        expr = r"$$v = 25 m/s$$"
+    def test_grouped_help_output(self) -> None:
+        parser = build_parser()
+        help_text = parser.format_help()
+        self.assertIn("File & Batch Targeting:", help_text)
+        self.assertIn("Verification & Diagnostic Modes:", help_text)
+        self.assertIn("Palettes & Theming:", help_text)
+        self.assertIn("Engine Features & Presets:", help_text)
+        self.assertIn("Interactive, Help & Diagnostics:", help_text)
+        self.assertIn("examples:", help_text)
+        self.assertIn("color-math note.md -w", help_text)
+
+    def test_stdin_tty_zero_hang(self) -> None:
+        # When run with no args and stdin is a TTY, print usage and exit 0 without hanging
+        stderr = io.StringIO()
+        stdin_mock = io.StringIO()
+        stdin_mock.isatty = lambda: True  # type: ignore[assignment]
+        with patch("sys.stdin", stdin_mock), patch("sys.stderr", stderr):
+            ret = main([])
+        self.assertEqual(ret, 0)
+        self.assertIn("usage: color-math", stderr.getvalue())
+        self.assertIn("To process LaTeX from standard input", stderr.getvalue())
+
+    def test_stdin_explicit_dash(self) -> None:
+        stdin_mock = io.StringIO("$$x = 1$$\n")
+        stdout = io.StringIO()
+        with patch("sys.stdin", stdin_mock), patch("sys.stdout", stdout):
+            ret = main(["-"])
+        self.assertEqual(ret, 0)
+        self.assertIn(r"\textcolor", stdout.getvalue())
+
+    def test_no_color_and_force_color_env(self) -> None:
+        from color_math.main import should_color
+
+        with patch.dict("os.environ", {"NO_COLOR": "1"}, clear=False):
+            self.assertFalse(should_color())
+
+        with patch.dict("os.environ", {"FORCE_COLOR": "1", "NO_COLOR": ""}, clear=False):
+            self.assertTrue(should_color())
+
+    def test_show_colors_json(self) -> None:
         stdout = io.StringIO()
         with patch("sys.stdout", stdout):
-            ret = main([expr, "--preset", "extended"])
+            ret = main(["--show-colors", "--json"])
         self.assertEqual(ret, 0)
-        output = stdout.getvalue()
-        self.assertIn(f"\\textcolor{{{DEFAULT_COLORS['unit']}}}{{m/s}}", output)
+        data = json.loads(stdout.getvalue())
+        self.assertIn("palette", data)
+        self.assertIn("descriptions", data)
+        self.assertEqual(data["palette"]["main"], DEFAULT_COLORS["main"])
+
+    def test_show_colors_terminal_swatches(self) -> None:
+        from color_math.main import print_color_table
+        stdout = io.StringIO()
+        with patch("sys.stdout", stdout):
+            print_color_table(DEFAULT_COLORS, colorize=True)
+        out = stdout.getvalue()
+        self.assertIn("Swatch", out)
+        self.assertIn("\033[38;2;", out)
+        self.assertIn("███", out)
+
+    def test_colored_diff(self) -> None:
+        from color_math.main import generate_diff
+        diff = generate_diff("$$x$$\n", "$$y$$\n", "test.md", colorize=True)
+        self.assertIn("\033[31m-", diff)  # Red for removal
+        self.assertIn("\033[32m+", diff)  # Green for addition
+        self.assertIn("\033[36m@@", diff)  # Cyan for hunk
+
+    def test_check_json_mode(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            file_path = Path(tmpdir) / "test.md"
+            file_path.write_text("$$\\frac{d}{dx}f(x)$$\n", encoding="utf-8")
+
+            stdout = io.StringIO()
+            with patch("sys.stdout", stdout):
+                ret_dirty = main([str(file_path), "--check", "--json"])
+            self.assertEqual(ret_dirty, 1)
+            data_dirty = json.loads(stdout.getvalue())
+            self.assertFalse(data_dirty["clean"])
+            self.assertEqual(data_dirty["modified_files"], 1)
+
+            # Color the file
+            main([str(file_path), "-w"])
+
+            stdout_clean = io.StringIO()
+            with patch("sys.stdout", stdout_clean):
+                ret_clean = main([str(file_path), "--check", "--json"])
+            self.assertEqual(ret_clean, 0)
+            data_clean = json.loads(stdout_clean.getvalue())
+            self.assertTrue(data_clean["clean"])
+            self.assertEqual(data_clean["modified_files"], 0)
+
+    def test_global_xdg_config_lookup(self) -> None:
+        from color_math.config import load_config
+        with TemporaryDirectory() as tmpdir:
+            global_cfg_dir = Path(tmpdir) / "color-math"
+            global_cfg_dir.mkdir()
+            cfg_file = global_cfg_dir / "config.json"
+            cfg_file.write_text(json.dumps({"theme": "catppuccin"}), encoding="utf-8")
+
+            with patch.dict("os.environ", {"XDG_CONFIG_HOME": str(tmpdir), "APPDATA": str(tmpdir)}):
+                palette, _ = load_config(path=None)
+                self.assertEqual(palette["main"], THEMES["catppuccin"]["main"])
+
+    def test_keyboard_interrupt_handling(self) -> None:
+        with patch("color_math.main._main_impl", side_effect=KeyboardInterrupt):
+            stderr = io.StringIO()
+            with patch("sys.stderr", stderr):
+                ret = main(["note.md"])
+            self.assertEqual(ret, 130)
+            self.assertIn("Interrupted.", stderr.getvalue())
 
 
 if __name__ == "__main__":
     unittest.main()
+

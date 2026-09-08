@@ -85,13 +85,15 @@ color-math "$$\frac{d}{dx} x^2 = 2x$$"
 | **Preview** | `color-math note.md` | Safe preview (leaves disk untouched) |
 | **Save / Write** | `color-math note.md -w` *(or `-i`)* | Write changes in-place |
 | **Batch Folder** | `color-math notes/ -r -w` | Recursively color directory |
-| **Unified Diff** | `color-math note.md --diff` | Inspect exact line changes |
+| **Unified Diff** | `color-math note.md --diff` | Inspect exact line changes (colorized) |
 | **Linter / CI Mode** | `color-math notes/ -r --check` | Exit `0` if clean, `1` if notes need coloring |
+| **Machine JSON** | `color-math notes/ -r --check --json` | Structured JSON output for CI and pipelines |
+| **Stdin Pipeline** | `cat note.md \| color-math -` | Read and color math from standard input |
 | **Curated Themes** | `color-math note.md --theme catppuccin -w` | Select `default`, `catppuccin`, `nord`, or `light` |
 | **Feature Preset** | `color-math note.md --preset minimal -w` | Presets: `all` (default), `minimal` |
 | **Custom Colors** | `color-math note.md -c unit=#73daca -w` | Override any of 12 individual color roles |
 | **Reset Palette** | `color-math --reset-colors` | Restore factory Tokyo Night palette |
-| **Inspect Colors** | `color-math --show-colors` | Display current active palette and roles |
+| **Inspect Colors** | `color-math --show-colors` | Display palette, descriptions, & terminal swatches |
 | **Undo / Strip** | `color-math note.md --undo -w` | Strip color wrappers back to plain LaTeX |
 | **Export Config** | `color-math --init-config` | Generate a documented `.colormath.json` |
 

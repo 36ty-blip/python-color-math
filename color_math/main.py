@@ -6,8 +6,10 @@ from __future__ import annotations
 import argparse
 import difflib
 import fnmatch
+import json
 import os
 import sys
+import time
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -45,69 +47,109 @@ DEFAULT_EXCLUDES = {
 }
 
 
+def should_color(stream: object = sys.stdout) -> bool:
+    """Determine whether terminal color escape codes should be emitted."""
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    if os.environ.get("NO_COLOR") or os.environ.get("TERM") == "dumb":
+        return False
+    is_atty = getattr(stream, "isatty", None)
+    return bool(is_atty and is_atty())
+
+
+def hex_to_ansi_rgb(hex_code: str) -> str:
+    """Convert a hex color (#rrggbb) or named color to an ANSI 24-bit color sequence."""
+    hex_clean = hex_code.strip().lstrip("#")
+    if len(hex_clean) == 6:
+        try:
+            r = int(hex_clean[0:2], 16)
+            g = int(hex_clean[2:4], 16)
+            b = int(hex_clean[4:6], 16)
+            return f"\033[38;2;{r};{g};{b}m"
+        except ValueError:
+            pass
+    elif hex_clean.lower() == "white":
+        return "\033[97m"
+    return ""
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="color-math",
-        description="Add semantic color to LaTeX math expressions in Markdown documents.",
+        description="Add semantic color to LaTeX math expressions in Markdown, LaTeX, and Jupyter notebooks.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "examples:\n"
+            "  color-math note.md                  Preview colored output in terminal (safe)\n"
+            "  color-math note.md -w               Write colored math back to note in-place\n"
+            "  color-math notes/ -r -w             Recursively color an entire directory/vault\n"
+            "  color-math note.md --diff           View syntax-highlighted unified diff\n"
+            "  color-math notes/ -r --check        Linter mode (returns 0 if clean, 1 if changes needed)\n"
+            '  color-math "$$\\frac{d}{dx} x^2$$"   Directly color a raw LaTeX expression\n'
+            "  echo '$$f(x)$$' | color-math -      Color LaTeX from standard input\n"
+            "  color-math --ui                     Launch the interactive graphical window\n"
+            "  color-math --tutorial               Launch the interactive terminal tutorial\n"
+        ),
     )
 
+    # Positional Inputs
     parser.add_argument(
         "inputs",
         nargs="*",
         help=(
-            "Input file(s), folder(s), or raw math expression. "
-            "Reads from stdin if omitted."
+            "Input file(s), folder(s), raw math expression, or '-' for stdin. "
+            "If omitted in an interactive terminal, concise usage is displayed."
         ),
     )
 
-    # File Writing & Mode
-    parser.add_argument(
+    # File & Batch Targeting Group
+    target_group = parser.add_argument_group("File & Batch Targeting")
+    target_group.add_argument(
         "-i",
         "--in-place",
         action="store_true",
         help="Write converted text back to file(s).",
     )
-    parser.add_argument(
+    target_group.add_argument(
         "-w",
         "--write",
         action="store_true",
         dest="in_place",
         help="Alias for --in-place. Overwrite file(s) on disk.",
     )
-    parser.add_argument(
+    target_group.add_argument(
         "-f",
         "--file",
         action="store_true",
         help="Treat input explicitly as a file path (for backward compatibility).",
     )
-    parser.add_argument(
+    target_group.add_argument(
         "-o",
         "--output",
         type=Path,
         help="Write output to destination file instead of stdout.",
     )
-
-    # Batch Traversal
-    parser.add_argument(
+    target_group.add_argument(
         "-r",
         "--recursive",
         action="store_true",
         help="Recursively scan directories for supported notes.",
     )
-    parser.add_argument(
+    target_group.add_argument(
         "--exclude",
         action="append",
         default=[],
         help="Glob pattern to exclude when scanning directories (repeatable).",
     )
 
-    # Linter, Diff & Preview Modes
-    parser.add_argument(
+    # Verification & Diagnostic Modes Group
+    check_group = parser.add_argument_group("Verification & Diagnostic Modes")
+    check_group.add_argument(
         "--diff",
         action="store_true",
-        help="Display unified diff of changes without modifying disk.",
+        help="Display syntax-colored unified diff of changes without modifying disk.",
     )
-    parser.add_argument(
+    check_group.add_argument(
         "--check",
         action="store_true",
         help=(
@@ -115,135 +157,22 @@ def build_parser() -> argparse.ArgumentParser:
             "exit with 1 if any files would be changed."
         ),
     )
-    parser.add_argument(
+    check_group.add_argument(
         "--dry-run",
         action="store_true",
         help="Report files that would change without modifying them.",
     )
-
-    # Learning & Beginner Ergonomics
-    parser.add_argument(
-        "--tutorial",
+    check_group.add_argument(
+        "--json",
         action="store_true",
-        help="Launch the interactive terminal tutorial with tips and examples.",
+        help="Output results in structured machine-readable JSON format.",
     )
-    parser.add_argument(
-        "--ui",
-        "--gui",
-        action="store_true",
-        help="Open the interactive graphical window with preview, colors, and settings.",
-    )
-
-    # Settings & Palette Reset / Customization
-    parser.add_argument(
-        "--reset-colors",
-        "--reset-palette",
-        action="store_true",
-        help="Reset color palette and configuration back to factory defaults.",
-    )
-    parser.add_argument(
-        "--reset-config",
-        action="store_true",
-        help="Reset local .colormath.json config file back to factory defaults.",
-    )
-    parser.add_argument(
-        "--show-colors",
-        "--show-palette",
-        action="store_true",
-        help="Print the active color palette and descriptions of each role.",
-    )
-    parser.add_argument(
-        "--init-config",
-        nargs="?",
-        const=".colormath.json",
-        help="Generate a .colormath.json config template (optional target path).",
-    )
-    parser.add_argument(
-        "--config",
-        type=Path,
-        help="Path to custom .colormath.json configuration file.",
-    )
-    parser.add_argument(
-        "--theme",
-        choices=list(THEMES.keys()),
-        help="Select a curated theme preset (default, catppuccin, nord, light).",
-    )
-    parser.add_argument(
-        "--color",
-        action="append",
-        default=[],
-        help="Override a color role (e.g. --color main=#7aa2f7 or -c unit=#73daca).",
-    )
-    parser.add_argument(
-        "--main-color",
-        help="Override main function color (backward-compatible shortcut).",
-    )
-
-    # Engine Feature Presets & Flags (ColorMathOptions)
-    parser.add_argument(
-        "--preset",
-        choices=["all", "minimal", "extended"],
-        default="all",
-        help=(
-            "Feature preset: 'all' (default: full engine with all features enabled) "
-            "or 'minimal' (basic function/derivative coloring only)."
-        ),
-    )
-    parser.add_argument(
-        "--taxonomy",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Enable/disable semantic taxonomy coloring.",
-    )
-    parser.add_argument(
-        "--rainbow-delimiters",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Enable/disable rainbow delimiter depth coloring.",
-    )
-    parser.add_argument(
-        "--variable-data-flow",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Enable/disable deterministic variable data-flow hash coloring.",
-    )
-    parser.add_argument(
-        "--units",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Enable/disable physical unit disambiguation.",
-    )
-    parser.add_argument(
-        "--differentials",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Enable/disable differential disambiguation.",
-    )
-    parser.add_argument(
-        "--braket",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Enable/disable quantum bra-ket notation coloring.",
-    )
-    parser.add_argument(
-        "--dimensionless",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Enable/disable dimensionless group recognition.",
-    )
-
-    # Core Options
-    parser.add_argument(
-        "--undo",
-        action="store_true",
-        help="Remove LaTeX color wrappers instead of adding them.",
-    )
-    parser.add_argument(
+    check_group.add_argument(
         "--parse",
         action="store_true",
         help="Inspect nested function calls without rewriting LaTeX.",
     )
-    parser.add_argument(
+    check_group.add_argument(
         "--format",
         choices=FORMATS,
         default="auto",
@@ -253,31 +182,149 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # Diagnostic & Logging
-    parser.add_argument(
+    # Palettes & Theming Group
+    style_group = parser.add_argument_group("Palettes & Theming")
+    style_group.add_argument(
+        "--theme",
+        choices=list(THEMES.keys()),
+        help="Select a curated theme preset (default, catppuccin, nord, light).",
+    )
+    style_group.add_argument(
+        "-c",
+        "--color",
+        action="append",
+        default=[],
+        help="Override a color role (e.g. --color main=#7aa2f7 or -c unit=#73daca).",
+    )
+    style_group.add_argument(
+        "--main-color",
+        help="Override main function color (backward-compatible shortcut).",
+    )
+    style_group.add_argument(
+        "--show-colors",
+        "--show-palette",
+        action="store_true",
+        help="Print the active color palette and descriptions of each role with swatches.",
+    )
+    style_group.add_argument(
+        "--reset-colors",
+        "--reset-palette",
+        action="store_true",
+        help="Reset color palette and configuration back to factory defaults.",
+    )
+    style_group.add_argument(
+        "--reset-config",
+        action="store_true",
+        help="Reset local .colormath.json config file back to factory defaults.",
+    )
+    style_group.add_argument(
+        "--init-config",
+        nargs="?",
+        const=".colormath.json",
+        help="Generate a .colormath.json config template (optional target path).",
+    )
+    style_group.add_argument(
+        "--config",
+        type=Path,
+        help="Path to custom .colormath.json configuration file.",
+    )
+
+    # Engine Features & Presets Group
+    engine_group = parser.add_argument_group("Engine Features & Presets")
+    engine_group.add_argument(
+        "--preset",
+        choices=["all", "minimal", "extended"],
+        default="all",
+        help=(
+            "Feature preset: 'all' (default: full engine with all features enabled) "
+            "or 'minimal' (basic function/derivative coloring only)."
+        ),
+    )
+    engine_group.add_argument(
+        "--taxonomy",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable semantic taxonomy coloring.",
+    )
+    engine_group.add_argument(
+        "--rainbow-delimiters",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable rainbow delimiter depth coloring.",
+    )
+    engine_group.add_argument(
+        "--variable-data-flow",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable deterministic variable data-flow hash coloring.",
+    )
+    engine_group.add_argument(
+        "--units",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable physical unit disambiguation.",
+    )
+    engine_group.add_argument(
+        "--differentials",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable differential disambiguation.",
+    )
+    engine_group.add_argument(
+        "--braket",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable quantum bra-ket notation coloring.",
+    )
+    engine_group.add_argument(
+        "--dimensionless",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable dimensionless group recognition.",
+    )
+    engine_group.add_argument(
+        "--undo",
+        action="store_true",
+        help="Remove LaTeX color wrappers instead of adding them.",
+    )
+
+    # Interactive, Help & Utilities Group
+    interactive_group = parser.add_argument_group("Interactive, Help & Diagnostics")
+    interactive_group.add_argument(
+        "--ui",
+        "--gui",
+        action="store_true",
+        help="Open the interactive graphical window with preview, colors, and settings.",
+    )
+    interactive_group.add_argument(
+        "--tutorial",
+        action="store_true",
+        help="Launch the interactive terminal tutorial with tips and examples.",
+    )
+    interactive_group.add_argument(
         "-V",
         "--version",
         action="version",
         version=f"python-color-math {VERSION}",
     )
-    parser.add_argument(
+    interactive_group.add_argument(
         "-v",
         "--verbose",
         action="store_true",
         help="Show detailed progress per file.",
     )
-    parser.add_argument(
+    interactive_group.add_argument(
         "-q",
         "--quiet",
         action="store_true",
         help="Suppress informational output.",
     )
-    parser.add_argument(
+    interactive_group.add_argument(
         "--self-test",
         action="store_true",
         help="Run internal tests and dependency checks.",
     )
-    parser.add_argument(
+    interactive_group.add_argument(
         "--update-generated",
         action="store_true",
         help="Refresh tests/generated while running --self-test.",
@@ -286,21 +333,37 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def print_color_table(palette: dict[str, str]) -> None:
-    """Print a clean, informative table of the active palette."""
+def print_color_table(palette: dict[str, str], colorize: bool | None = None) -> None:
+    """Print a clean, informative table of the active palette with terminal swatches."""
+    if colorize is None:
+        colorize = should_color(sys.stdout)
+
     print("\nPython Color Math Palette:\n")
-    print(f"  {'Role':<14} {'Current':<10} {'Default':<10} {'Status':<10} Description")
-    print(f"  {'-'*14} {'-'*10} {'-'*10} {'-'*10} {'-'*45}")
+    if colorize:
+        print(f"  {'Role':<14} {'Swatch':<8} {'Current':<10} {'Default':<10} {'Status':<10} Description")
+        print(f"  {'-'*14} {'-'*8} {'-'*10} {'-'*10} {'-'*10} {'-'*45}")
+    else:
+        print(f"  {'Role':<14} {'Current':<10} {'Default':<10} {'Status':<10} Description")
+        print(f"  {'-'*14} {'-'*10} {'-'*10} {'-'*10} {'-'*45}")
+
     for role, default_val in DEFAULT_COLORS.items():
         curr_val = palette.get(role, default_val)
         status = "default" if curr_val.lower() == default_val.lower() else "modified"
         desc = ROLE_DESCRIPTIONS.get(role, "")
-        print(f"  {role:<14} {curr_val:<10} {default_val:<10} {status:<10} {desc}")
+        if colorize:
+            ansi = hex_to_ansi_rgb(curr_val)
+            swatch = f"{ansi}███\033[0m" if ansi else "   "
+            print(f"  {role:<14} {swatch}     {curr_val:<10} {default_val:<10} {status:<10} {desc}")
+        else:
+            print(f"  {role:<14} {curr_val:<10} {default_val:<10} {status:<10} {desc}")
     print()
 
 
-def generate_diff(original: str, converted: str, filename: str) -> str:
-    """Generate a unified diff representation."""
+def generate_diff(original: str, converted: str, filename: str, colorize: bool | None = None) -> str:
+    """Generate a unified diff representation, optionally colorized with ANSI codes."""
+    if colorize is None:
+        colorize = should_color(sys.stdout)
+
     diff_lines = list(
         difflib.unified_diff(
             original.splitlines(keepends=True),
@@ -309,7 +372,22 @@ def generate_diff(original: str, converted: str, filename: str) -> str:
             tofile=f"b/{filename}",
         )
     )
-    return "".join(diff_lines)
+    if not colorize:
+        return "".join(diff_lines)
+
+    colored: list[str] = []
+    for line in diff_lines:
+        if line.startswith("+++") or line.startswith("---"):
+            colored.append(f"\033[1m{line}\033[0m")
+        elif line.startswith("+"):
+            colored.append(f"\033[32m{line}\033[0m")
+        elif line.startswith("-"):
+            colored.append(f"\033[31m{line}\033[0m")
+        elif line.startswith("@@"):
+            colored.append(f"\033[36m{line}\033[0m")
+        else:
+            colored.append(line)
+    return "".join(colored)
 
 
 def is_path_target(candidate: str, force_file: bool) -> bool:
@@ -412,7 +490,7 @@ def resolve_options(args: argparse.Namespace, config_options: ColorMathOptions) 
     return opts
 
 
-def main(argv: list[str] | None = None) -> int:
+def _main_impl(argv: list[str] | None = None) -> int:
     if sys.platform == "win32":
         try:
             if hasattr(sys.stdout, "reconfigure"):
@@ -475,6 +553,14 @@ def main(argv: list[str] | None = None) -> int:
     COLORS.update(palette)
 
     if args.show_colors:
+        if args.json:
+            out_data = {
+                "theme": args.theme or "default",
+                "palette": palette,
+                "descriptions": ROLE_DESCRIPTIONS,
+            }
+            sys.stdout.write(json.dumps(out_data, indent=2) + "\n")
+            return 0
         print_color_table(palette)
         return 0
 
@@ -496,17 +582,31 @@ def main(argv: list[str] | None = None) -> int:
     inputs = args.inputs
     is_explicit_file = args.file
 
-    # Check if inputs are file/directory targets
+    is_stdin = False
+    if not inputs:
+        # Zero-hang stdin protection: if interactive TTY, show concise usage and exit cleanly
+        if sys.stdin.isatty():
+            parser.print_usage(sys.stderr)
+            sys.stderr.write(
+                "\nFor detailed help, run 'color-math --help' or 'color-math --tutorial'.\n"
+                "To process LaTeX from standard input, pipe text or pass '-': e.g. echo '$$x$$' | color-math -\n"
+            )
+            return 0
+        is_stdin = True
+    elif len(inputs) == 1 and inputs[0] == "-":
+        is_stdin = True
+
     is_file_mode = False
-    if is_explicit_file:
-        is_file_mode = True
-        if not inputs:
-            parser.error("--file requires at least one path")
-    elif len(inputs) == 1:
-        if is_path_target(inputs[0], force_file=False):
+    if not is_stdin:
+        if is_explicit_file:
             is_file_mode = True
-    elif len(inputs) > 1:
-        is_file_mode = True
+            if not inputs:
+                parser.error("--file requires at least one path")
+        elif len(inputs) == 1:
+            if is_path_target(inputs[0], force_file=False):
+                is_file_mode = True
+        elif len(inputs) > 1:
+            is_file_mode = True
 
     # Check flags consistency
     if args.in_place and not is_file_mode:
@@ -529,12 +629,19 @@ def main(argv: list[str] | None = None) -> int:
             parser.exit(1, f"{err}\n")
 
         if not files:
+            if args.json:
+                sys.stdout.write(json.dumps({"clean": True, "total_files": 0, "modified_files": 0, "files": []}, indent=2) + "\n")
+                return 0
             if not args.quiet:
                 sys.stderr.write("color-math: no matching files found\n")
             return 0
 
         files_modified = 0
         total_files = len(files)
+        checked_files: list[dict[str, object]] = []
+        diff_dict: dict[str, str] = {}
+        files_would_modify: list[str] = []
+        start_time = time.perf_counter()
 
         for path in files:
             try:
@@ -570,20 +677,26 @@ def main(argv: list[str] | None = None) -> int:
             # Diff mode
             if args.diff:
                 diff_output = generate_diff(text, converted, str(path))
-                if diff_output:
+                if args.json:
+                    if diff_output:
+                        diff_dict[str(path)] = diff_output
+                elif diff_output:
                     sys.stdout.write(diff_output)
                 continue
 
             # Check mode
             if args.check:
-                if is_changed and not args.quiet:
+                checked_files.append({"path": str(path), "status": "needs_coloring" if is_changed else "clean"})
+                if not args.json and is_changed and not args.quiet:
                     sys.stderr.write(f"needs coloring: {path}\n")
                 continue
 
             # Dry run
             if args.dry_run:
-                if is_changed and not args.quiet:
-                    sys.stdout.write(f"would modify: {path}\n")
+                if is_changed:
+                    files_would_modify.append(str(path))
+                    if not args.json and not args.quiet:
+                        sys.stdout.write(f"would modify: {path}\n")
                 continue
 
             # Output to single destination file
@@ -620,23 +733,52 @@ def main(argv: list[str] | None = None) -> int:
                     sys.stdout.write(converted)
                 return 0
 
+        elapsed = time.perf_counter() - start_time
+
+        # Batch summary for diff / dry-run / check in JSON
+        if args.diff and args.json:
+            sys.stdout.write(json.dumps({"total_files": total_files, "diffs": diff_dict}, indent=2) + "\n")
+            return 0
+
+        if args.dry_run and args.json:
+            sys.stdout.write(json.dumps({"total_files": total_files, "would_modify": files_would_modify}, indent=2) + "\n")
+            return 0
+
         # Batch summary for in-place / check
         if args.check:
+            if args.json:
+                result = {
+                    "clean": files_modified == 0,
+                    "total_files": total_files,
+                    "modified_files": files_modified,
+                    "elapsed_seconds": round(elapsed, 4),
+                    "files": checked_files,
+                }
+                sys.stdout.write(json.dumps(result, indent=2) + "\n")
+                return 1 if files_modified > 0 else 0
+
             if files_modified > 0:
                 if not args.quiet:
-                    sys.stderr.write(f"\n{files_modified} of {total_files} file(s) need coloring.\n")
+                    sys.stderr.write(f"\n{files_modified} of {total_files} file(s) need coloring ({elapsed:.2f}s).\n")
                 return 1
             if not args.quiet:
-                sys.stdout.write(f"All {total_files} file(s) are cleanly formatted.\n")
+                sys.stdout.write(f"All {total_files} file(s) are cleanly formatted ({elapsed:.2f}s).\n")
             return 0
 
         if args.in_place and not args.quiet and total_files > 1:
-            sys.stdout.write(f"Processed {total_files} file(s): {files_modified} modified, {total_files - files_modified} unchanged.\n")
+            sys.stdout.write(
+                f"Processed {total_files} file(s) in {elapsed:.2f}s: {files_modified} modified, {total_files - files_modified} unchanged.\n"
+            )
 
         return 0
 
     # 6. Direct Input or Stdin Mode
-    text = inputs[0] if inputs else sys.stdin.read()
+    if is_stdin:
+        text = sys.stdin.read()
+        label = "stdin"
+    else:
+        text = inputs[0]
+        label = "input"
 
     format_name = detect_format(None, args.format)
     if args.parse:
@@ -657,7 +799,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.exit(1, f"color-math: {error}\n")
 
     if args.diff:
-        sys.stdout.write(generate_diff(text, converted, "input"))
+        diff_output = generate_diff(text, converted, label)
+        if args.json:
+            sys.stdout.write(json.dumps({"diffs": {label: diff_output}}, indent=2) + "\n")
+        else:
+            sys.stdout.write(diff_output)
         return 0
 
     if args.output:
@@ -667,8 +813,21 @@ def main(argv: list[str] | None = None) -> int:
             parser.exit(1, f"color-math: cannot write to {args.output}: {error}\n")
         return 0
 
+    if args.json:
+        sys.stdout.write(json.dumps({"source": label, "converted": converted}, indent=2) + "\n")
+        return 0
+
     sys.stdout.write(converted)
     return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Safe entry point with graceful signal handling."""
+    try:
+        return _main_impl(argv)
+    except KeyboardInterrupt:
+        sys.stderr.write("\nInterrupted.\n")
+        return 130
 
 
 if __name__ == "__main__":
