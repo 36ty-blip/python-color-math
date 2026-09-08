@@ -26,6 +26,7 @@ from .config import (
     reset_config_file,
     save_default_config,
 )
+from .completions import SHELLS, get_completion_script
 from .io import encode_utf8, read_utf8, replace_bytes
 from .parsers.math_parser import describe_math_blocks
 from .self_test import run_self_test
@@ -329,6 +330,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Refresh tests/generated while running --self-test.",
     )
+    interactive_group.add_argument(
+        "--generate-completion",
+        choices=SHELLS,
+        help="Generate shell autocompletion script (bash, zsh, fish, powershell).",
+    )
 
     return parser
 
@@ -578,6 +584,12 @@ def _main_impl(argv: list[str] | None = None) -> int:
             options=options,
         )
 
+    # Generate shell autocompletion script
+    if args.generate_completion:
+        script = get_completion_script(args.generate_completion)
+        sys.stdout.write(script)
+        return 0
+
     # 4. Determine input mode
     inputs = args.inputs
     is_explicit_file = args.file
@@ -642,8 +654,13 @@ def _main_impl(argv: list[str] | None = None) -> int:
         diff_dict: dict[str, str] = {}
         files_would_modify: list[str] = []
         start_time = time.perf_counter()
+        show_progress = total_files > 1 and sys.stderr.isatty() and not args.quiet and not args.json
 
-        for path in files:
+        for idx, path in enumerate(files):
+            if show_progress:
+                sys.stderr.write(f"\r\033[K[{idx + 1}/{total_files}] Processing {path.name}...")
+                sys.stderr.flush()
+
             try:
                 text, source = read_utf8(path)
             except UnicodeDecodeError as error:
@@ -732,6 +749,10 @@ def _main_impl(argv: list[str] | None = None) -> int:
                 else:
                     sys.stdout.write(converted)
                 return 0
+
+        if show_progress:
+            sys.stderr.write("\r\033[K")
+            sys.stderr.flush()
 
         elapsed = time.perf_counter() - start_time
 

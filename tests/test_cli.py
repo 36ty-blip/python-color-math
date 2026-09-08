@@ -301,6 +301,43 @@ class CLITests(unittest.TestCase):
             self.assertEqual(ret, 130)
             self.assertIn("Interrupted.", stderr.getvalue())
 
+    def test_generate_completion_shells(self) -> None:
+        for shell, signature in [
+            ("bash", "complete -F _color_math_completion color-math"),
+            ("zsh", "#compdef color-math"),
+            ("fish", "Fish completion for color-math"),
+            ("powershell", "Register-ArgumentCompleter -Native -CommandName color-math"),
+        ]:
+            stdout = io.StringIO()
+            with patch("sys.stdout", stdout):
+                ret = main(["--generate-completion", shell])
+            self.assertEqual(ret, 0, f"Completion failed for {shell}")
+            out = stdout.getvalue()
+            self.assertIn(signature, out)
+            self.assertIn("theme", out)
+            self.assertIn("diff", out)
+
+    def test_generate_completion_invalid_shell(self) -> None:
+        from color_math.completions import generate_completion
+        with self.assertRaises(ValueError):
+            generate_completion("unsupported_shell")
+
+    def test_interactive_progress_output(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            f1 = Path(tmpdir) / "f1.md"
+            f2 = Path(tmpdir) / "f2.md"
+            f1.write_text("$$x+1$$\n", encoding="utf-8")
+            f2.write_text("$$y+2$$\n", encoding="utf-8")
+
+            stderr = io.StringIO()
+            stderr.isatty = lambda: True  # type: ignore[assignment]
+            with patch("sys.stderr", stderr):
+                ret = main([str(f1), str(f2), "-w"])
+            self.assertEqual(ret, 0)
+            val = stderr.getvalue()
+            self.assertIn("[1/2]", val)
+            self.assertIn("[2/2]", val)
+
 
 if __name__ == "__main__":
     unittest.main()

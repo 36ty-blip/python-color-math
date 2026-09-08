@@ -1,0 +1,15 @@
+- id: color-math-check
+  name: color-math check (LaTeX math linter)
+  description: Verify that LaTeX math expressions in Markdown, LaTeX, and Jupyter notebooks are colored and cleanly formatted.
+  entry: color-math --check
+  language: python
+  types_or: [markdown, jupyter, tex]
+  require_serial: true
+
+- id: color-math
+  name: color-math format
+  description: Automatically format and add semantic colors to LaTeX math expressions in Markdown, LaTeX, and Jupyter notebooks.
+  entry: color-math -w
+  language: python
+  types_or: [markdown, jupyter, tex]
+  require_serial: true

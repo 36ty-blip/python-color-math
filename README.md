@@ -146,6 +146,45 @@ color-math notes/ -r --undo -w
 
 ---
 
+## 🐚 Shell Autocompletion
+
+Generate fast, native completions with full support for all flags, themes, presets, and file formats:
+
+```bash
+# Bash
+color-math --generate-completion bash >> ~/.bash_completion
+
+# Zsh
+color-math --generate-completion zsh > ~/.zsh/completion/_color-math
+
+# Fish
+color-math --generate-completion fish > ~/.config/fish/completions/color-math.fish
+
+# PowerShell
+color-math --generate-completion powershell | Out-String | Invoke-Expression
+# Or persist to your $PROFILE:
+Add-Content $PROFILE "`ncolor-math --generate-completion powershell | Out-String | Invoke-Expression"
+```
+
+---
+
+## 🪝 Pre-commit Integration
+
+Integrate `color-math` into your git workflow using [pre-commit](https://pre-commit.com):
+
+```yaml
+repos:
+  - repo: https://github.com/36ty-blip/color-math
+    rev: v0.2.0
+    hooks:
+      # Formatter: colorizes modified Markdown, LaTeX, and Jupyter files in-place
+      - id: color-math
+      # Linter: verifies math formatting without modifying files (fails if uncolored)
+      # - id: color-math-check
+```
+
+---
+
 ## ⚙️ Configuration & Standards
 
 `python-color-math` adheres to modern CLI standards ([clig.dev](https://clig.dev/)):
