@@ -29,6 +29,9 @@ from color_math.parsers.markdown_scanner import (
     scan_markdown,
 )
 from color_math.undo import uncolor_text
+from .test_cli import CLITests
+from .test_features import FeatureTests
+from .test_gui import GUITests
 
 
 ROOT = Path(__file__).resolve().parent

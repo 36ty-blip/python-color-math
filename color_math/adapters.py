@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 
+from .config import ColorMathOptions
 from .converters.block import convert_math_block, convert_text
 from .undo import uncolor_fragment, uncolor_text
 from .utils.latex_helpers import read_comment_end, read_verb_end
@@ -49,26 +50,42 @@ def detect_format(path: Path | None, requested: str = "auto") -> str:
     return "markdown"
 
 
-def transform_document(text: str, format_name: str, undo: bool = False) -> str:
+def transform_document(
+    text: str,
+    format_name: str,
+    undo: bool = False,
+    palette: dict[str, str] | None = None,
+    options: ColorMathOptions | None = None,
+) -> str:
     if format_name == "markdown":
-        return uncolor_text(text) if undo else convert_text(text)
+        return uncolor_text(text) if undo else convert_text(text, palette=palette, options=options)
     if format_name == "jupyter":
-        return _transform_notebook(text, undo)
+        return _transform_notebook(text, undo, palette=palette, options=options)
     if format_name == "anki":
-        return _transform_delimited(text, ANKI_DELIMITERS, undo)
+        return _transform_delimited(text, ANKI_DELIMITERS, undo, palette=palette, options=options)
     if format_name == "tex":
-        return _transform_tex(text, undo)
+        return _transform_tex(text, undo, palette=palette, options=options)
     raise AdapterError(f"unsupported format: {format_name}")
 
 
-def _transform_fragment(text: str, undo: bool) -> str:
+def _transform_fragment(
+    text: str,
+    undo: bool,
+    palette: dict[str, str] | None = None,
+    options: ColorMathOptions | None = None,
+) -> str:
     if undo:
         return uncolor_fragment(text)
-    converted = convert_math_block(f"$${text}$$")
+    converted = convert_math_block(f"$${text}$$", palette=palette, options=options)
     return converted[2:-2]
 
 
-def _transform_notebook(text: str, undo: bool) -> str:
+def _transform_notebook(
+    text: str,
+    undo: bool,
+    palette: dict[str, str] | None = None,
+    options: ColorMathOptions | None = None,
+) -> str:
     try:
         notebook = json.loads(text)
     except json.JSONDecodeError as error:
@@ -89,7 +106,7 @@ def _transform_notebook(text: str, undo: bool) -> str:
         else:
             raise AdapterError(f"markdown cell {index + 1} has an invalid source")
 
-        converted = uncolor_text(joined) if undo else convert_text(joined)
+        converted = uncolor_text(joined) if undo else convert_text(joined, palette=palette, options=options)
         if converted == joined:
             continue
         cell["source"] = (
@@ -145,6 +162,8 @@ def _transform_delimited(
     text: str,
     delimiters: tuple[tuple[str, str], ...],
     undo: bool,
+    palette: dict[str, str] | None = None,
+    options: ColorMathOptions | None = None,
 ) -> str:
     output: list[str] = []
     index = 0
@@ -154,7 +173,7 @@ def _transform_delimited(
         if end < 0:
             break
         output.append(text[index:start + len(opening)])
-        output.append(_transform_fragment(text[start + len(opening):end], undo))
+        output.append(_transform_fragment(text[start + len(opening):end], undo, palette=palette, options=options))
         output.append(closing)
         index = end + len(closing)
     output.append(text[index:])
@@ -190,7 +209,12 @@ def _find_dollar(text: str, start: int, width: int) -> int:
     return -1
 
 
-def _transform_tex_math(text: str, undo: bool) -> str:
+def _transform_tex_math(
+    text: str,
+    undo: bool,
+    palette: dict[str, str] | None = None,
+    options: ColorMathOptions | None = None,
+) -> str:
     output: list[str] = []
     index = 0
     while index < len(text):
@@ -220,7 +244,7 @@ def _transform_tex_math(text: str, undo: bool) -> str:
                     continue
                 if end_start >= 0 and name in MATH_ENVIRONMENTS:
                     end = end_start + len(closing)
-                    output.append(_transform_fragment(text[index:end], undo))
+                    output.append(_transform_fragment(text[index:end], undo, palette=palette, options=options))
                     index = end
                     continue
 
@@ -233,7 +257,7 @@ def _transform_tex_math(text: str, undo: bool) -> str:
                 end_start = _find_active(text, closing, index + len(opening))
                 if end_start >= 0:
                     output.append(opening)
-                    output.append(_transform_fragment(text[index + len(opening):end_start], undo))
+                    output.append(_transform_fragment(text[index + len(opening):end_start], undo, palette=palette, options=options))
                     output.append(closing)
                     index = end_start + len(closing)
                     continue
@@ -244,7 +268,7 @@ def _transform_tex_math(text: str, undo: bool) -> str:
             if end_start >= 0:
                 delimiter = "$" * width
                 output.append(delimiter)
-                output.append(_transform_fragment(text[index + width:end_start], undo))
+                output.append(_transform_fragment(text[index + width:end_start], undo, palette=palette, options=options))
                 output.append(delimiter)
                 index = end_start + width
                 continue
@@ -282,7 +306,12 @@ def _native_support(text: str) -> str:
     return translated[:insertion] + block + translated[insertion:]
 
 
-def _transform_tex(text: str, undo: bool) -> str:
+def _transform_tex(
+    text: str,
+    undo: bool,
+    palette: dict[str, str] | None = None,
+    options: ColorMathOptions | None = None,
+) -> str:
     if undo:
-        return _transform_tex_math(NATIVE_BLOCK_RE.sub("", text), True)
-    return _native_support(_transform_tex_math(text, False))
+        return _transform_tex_math(NATIVE_BLOCK_RE.sub("", text), True, palette=palette, options=options)
+    return _native_support(_transform_tex_math(text, False, palette=palette, options=options))

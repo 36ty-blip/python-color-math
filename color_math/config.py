@@ -1,6 +1,7 @@
-# config.py
 from __future__ import annotations
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 DEFAULT_COLORS = {
     "main": "#7aa2f7",
@@ -15,6 +16,67 @@ DEFAULT_COLORS = {
     "spacing": "white",
     "parameter": "#bb9af7",
     "unit": "#73daca",
+}
+
+THEMES: dict[str, dict[str, str]] = {
+    "default": dict(DEFAULT_COLORS),
+    "catppuccin": {
+        "main": "#8aadf4",
+        "orange": "#f5a97f",
+        "dot": "white",
+        "derivative": "#c6a0f6",
+        "chain": "#a6da95",
+        "upper": "#c6a0f6",
+        "relation": "white",
+        "arrow": "#ed8796",
+        "set": "#c6a0f6",
+        "spacing": "white",
+        "parameter": "#c6a0f6",
+        "unit": "#8bd5ca",
+    },
+    "nord": {
+        "main": "#88c0d0",
+        "orange": "#d08770",
+        "dot": "white",
+        "derivative": "#b48ead",
+        "chain": "#a3be8c",
+        "upper": "#b48ead",
+        "relation": "white",
+        "arrow": "#bf616a",
+        "set": "#b48ead",
+        "spacing": "white",
+        "parameter": "#b48ead",
+        "unit": "#8fbcbb",
+    },
+    "light": {
+        "main": "#1a5fb4",
+        "orange": "#c64600",
+        "dot": "#222222",
+        "derivative": "#613583",
+        "chain": "#26a269",
+        "upper": "#613583",
+        "relation": "#222222",
+        "arrow": "#c01c28",
+        "set": "#613583",
+        "spacing": "#222222",
+        "parameter": "#613583",
+        "unit": "#008080",
+    },
+}
+
+ROLE_DESCRIPTIONS: dict[str, str] = {
+    "main": "Primary functions, terms, and outermost operations (e.g. f(x))",
+    "derivative": "Derivative marks and differentiated functions (e.g. f'(x))",
+    "chain": "Chain rule factors, inner differential stages (e.g. g'(x), y')",
+    "orange": "Big operators, sums, integrals, and limits (e.g. \\sum, \\int, \\lim)",
+    "dot": "Multiplication symbols, dots, and cross products (e.g. \\cdot, \\times)",
+    "relation": "Equals, inequalities, and comparison symbols (e.g. =, <, \\le)",
+    "arrow": "Implication and mapping arrows (e.g. \\to, \\implies)",
+    "set": "Set theory relations and operators (e.g. \\in, \\subset)",
+    "spacing": "LaTeX spacing and alignment commands (e.g. \\quad, \\,)",
+    "upper": "Matrix exponents, transposes, and top indices (e.g. A^T, M^{-1})",
+    "parameter": "Inner function parameters and indexed variables",
+    "unit": "Physical units and dimensions (e.g. m/s, \\mu m, ^\\circ C)",
 }
 
 COLORS = dict(DEFAULT_COLORS)
@@ -349,3 +411,90 @@ class ColorMathOptions:
             color_braket=True,
             color_dimensionless=True,
         )
+
+
+def get_theme(name: str) -> dict[str, str]:
+    """Retrieve colors for a theme preset by name, or fallback to default."""
+    theme = THEMES.get(name.lower())
+    if theme is None:
+        valid = ", ".join(THEMES.keys())
+        raise ValueError(f"unknown theme '{name}'. Available themes: {valid}")
+    return dict(theme)
+
+
+def reset_colors() -> dict[str, str]:
+    """Reset the global runtime COLORS dictionary back to factory DEFAULT_COLORS."""
+    COLORS.clear()
+    COLORS.update(DEFAULT_COLORS)
+    return dict(COLORS)
+
+
+def default_config_dict() -> dict[str, object]:
+    """Return dictionary representation of the default configuration."""
+    return {
+        "theme": "default",
+        "colors": dict(DEFAULT_COLORS),
+        "options": asdict(ColorMathOptions()),
+    }
+
+
+def load_config(path: Path | None = None) -> tuple[dict[str, str], ColorMathOptions]:
+    """
+    Load configuration from path or look for local '.colormath.json'.
+    Returns (palette_dict, ColorMathOptions).
+    """
+    target = path
+    if target is None:
+        local_candidate = Path(".colormath.json")
+        if local_candidate.exists():
+            target = local_candidate
+
+    if target is None or not target.exists():
+        return dict(DEFAULT_COLORS), ColorMathOptions()
+
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except Exception as err:
+        raise ValueError(f"Failed to parse config file {target}: {err}") from err
+
+    palette = dict(DEFAULT_COLORS)
+    if isinstance(data, dict):
+        if "theme" in data and isinstance(data["theme"], str):
+            try:
+                palette.update(get_theme(data["theme"]))
+            except ValueError:
+                pass
+        if "colors" in data and isinstance(data["colors"], dict):
+            for k, v in data["colors"].items():
+                if isinstance(k, str) and isinstance(v, str):
+                    palette[k] = v
+
+    raw_options = data.get("options", {}) if isinstance(data, dict) else {}
+    options = ColorMathOptions(
+        enable_taxonomy=bool(raw_options.get("enable_taxonomy", False)),
+        rainbow_delimiters=bool(raw_options.get("rainbow_delimiters", False)),
+        variable_data_flow=bool(raw_options.get("variable_data_flow", False)),
+        color_units=bool(raw_options.get("color_units", False)),
+        color_differentials=bool(raw_options.get("color_differentials", False)),
+        color_braket=bool(raw_options.get("color_braket", False)),
+        color_dimensionless=bool(raw_options.get("color_dimensionless", False)),
+    )
+    return palette, options
+
+
+def save_default_config(path: Path) -> Path:
+    """Save the clean default configuration to path."""
+    content = {
+        "_comment": "Python Color Math configuration file",
+        "theme": "default",
+        "colors": dict(DEFAULT_COLORS),
+        "options": asdict(ColorMathOptions()),
+        "_role_descriptions": ROLE_DESCRIPTIONS,
+    }
+    path.write_text(json.dumps(content, indent=2), encoding="utf-8")
+    return path
+
+
+def reset_config_file(path: Path) -> Path:
+    """Reset an existing configuration file at path back to factory defaults."""
+    return save_default_config(path)

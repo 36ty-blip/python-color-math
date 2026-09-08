@@ -1,25 +1,11 @@
-# Byte-compiled / optimized / DLL files
+.venv/
+.agents/
+.codex/
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
-.eggs/
-
-# Virtual environments
-.venv/
-env/
-venv/
-ENV/
-
-# IDEs
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Obsidian vault local files
+.pytest_cache/
 .obsidian/
+build/
+dist/
+wheelhouse/
+*.egg-info/
