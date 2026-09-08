@@ -23,8 +23,8 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Repository = "https://github.com/36ty-blip/color-math"
-Issues = "https://github.com/36ty-blip/color-math/issues"
+Repository = "https://github.com/36ty-blip/python-color-math"
+Issues = "https://github.com/36ty-blip/python-color-math/issues"
 
 [project.scripts]
 color-math = "color_math.main:main"
