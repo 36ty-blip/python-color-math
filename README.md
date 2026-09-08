@@ -72,6 +72,12 @@ color-math notes/ -r -w
 
 # Color a raw LaTeX string directly
 color-math "$$\frac{d}{dx} x^2 = 2x$$"
+
+# Read and color from standard input pipeline
+cat note.md | color-math -
+
+# Inspect syntax-colored unified diff without touching disk
+color-math note.md --diff
 ```
 
 ---
@@ -137,6 +143,15 @@ color-math note.md --undo -w
 color-math notes/ -r --undo -w
 ```
 *Undo cleanly removes generated `\textcolor{...}{...}` and compatible legacy `\color{...}{...}` wrappers.*
+
+---
+
+## ⚙️ Configuration & Standards
+
+`python-color-math` adheres to modern CLI standards ([clig.dev](https://clig.dev/)):
+- **Config Hierarchy**: `--config <file>` > `./.colormath.json` (project local) > Global user config (`%APPDATA%\color-math\config.json` on Windows or `~/.config/color-math/config.json` on Linux/macOS) > Factory defaults.
+- **Color Standards**: Honors `NO_COLOR` ([no-color.org](https://no-color.org)), `FORCE_COLOR`, and `TERM=dumb`.
+- **CI / Pre-commit**: Combine `--check --json` for structured reporting in automated pipelines.
 
 ---
 
