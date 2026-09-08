@@ -183,10 +183,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--preset",
         choices=["minimal", "extended", "all"],
+        default="all",
         help=(
-            "Feature preset: 'minimal' (default), 'extended' (Obsidian plugin standard: "
-            "taxonomy, delimiters, units, differentials, braket, dimensionless), "
-            "or 'all' (extended + variable data-flow hashing)."
+            "Feature preset: 'all' (default: all features enabled including variable data-flow), "
+            "'extended' (Obsidian plugin standard: taxonomy, delimiters, units, differentials, braket, dimensionless), "
+            "or 'minimal' (basic function/derivative coloring)."
         ),
     )
     parser.add_argument(

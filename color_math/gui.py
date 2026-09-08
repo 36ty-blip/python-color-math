@@ -70,10 +70,10 @@ class ColorMathApp:
         self.mode_var = tk.StringVar(value="write" if initial_write else "preview")
 
         self.palette: dict[str, str] = dict(palette if palette else DEFAULT_COLORS)
-        self.options: ColorMathOptions = options or ColorMathOptions()
+        self.options: ColorMathOptions = options or ColorMathOptions.all_enabled()
 
         self.theme_var = tk.StringVar(value="default")
-        self.preset_var = tk.StringVar(value="minimal")
+        self.preset_var = tk.StringVar(value="all")
 
         # Options BooleanVars
         self.opt_units = tk.BooleanVar(value=self.options.color_units)

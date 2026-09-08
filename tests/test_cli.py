@@ -30,7 +30,7 @@ class CLITests(unittest.TestCase):
             ret = main([expr])
         self.assertEqual(ret, 0)
         output = stdout.getvalue()
-        self.assertIn(r"\textcolor{#7aa2f7}{f}(x)", output)
+        self.assertIn(r"\textcolor{#7aa2f7}{f}", output)
 
     def test_direct_expression_with_theme(self) -> None:
         expr = r"$$\frac{d}{dx}f(x)$$"
@@ -39,7 +39,7 @@ class CLITests(unittest.TestCase):
             ret = main([expr, "--theme", "catppuccin"])
         self.assertEqual(ret, 0)
         output = stdout.getvalue()
-        self.assertIn(f"\\textcolor{{{THEMES['catppuccin']['main']}}}{{f}}(x)", output)
+        self.assertIn(f"\\textcolor{{{THEMES['catppuccin']['main']}}}{{f}}", output)
 
     def test_direct_expression_with_color_override(self) -> None:
         expr = r"$$\frac{d}{dx}f(x)$$"
@@ -48,7 +48,7 @@ class CLITests(unittest.TestCase):
             ret = main([expr, "--color", "main=#123456"])
         self.assertEqual(ret, 0)
         output = stdout.getvalue()
-        self.assertIn(r"\textcolor{#123456}{f}(x)", output)
+        self.assertIn(r"\textcolor{#123456}{f}", output)
 
     def test_auto_detect_single_file_preview(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -59,7 +59,7 @@ class CLITests(unittest.TestCase):
             with patch("sys.stdout", stdout):
                 ret = main([str(file_path)])
             self.assertEqual(ret, 0)
-            self.assertIn(r"\textcolor{#7aa2f7}{f}(x)", stdout.getvalue())
+            self.assertIn(r"\textcolor{#7aa2f7}{f}", stdout.getvalue())
             # File on disk should remain unchanged without -w or -i
             self.assertEqual(file_path.read_text(encoding="utf-8"), "$$\\frac{d}{dx}f(x)$$\n")
 
@@ -71,7 +71,7 @@ class CLITests(unittest.TestCase):
             ret = main([str(file_path), "-w"])
             self.assertEqual(ret, 0)
             content = file_path.read_text(encoding="utf-8")
-            self.assertIn(r"\textcolor{#7aa2f7}{f}(x)", content)
+            self.assertIn(r"\textcolor{#7aa2f7}{f}", content)
 
     def test_undo_restores_plain_latex(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -120,7 +120,7 @@ class CLITests(unittest.TestCase):
             diff_text = stdout.getvalue()
             self.assertIn("---", diff_text)
             self.assertIn("+++", diff_text)
-            self.assertIn(r"\textcolor{#7aa2f7}{f}(x)", diff_text)
+            self.assertIn(r"\textcolor{#7aa2f7}{f}", diff_text)
 
     def test_output_destination(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -131,7 +131,7 @@ class CLITests(unittest.TestCase):
             ret = main([str(in_file), "-o", str(out_file)])
             self.assertEqual(ret, 0)
             self.assertTrue(out_file.exists())
-            self.assertIn(r"\textcolor{#7aa2f7}{f}(x)", out_file.read_text(encoding="utf-8"))
+            self.assertIn(r"\textcolor{#7aa2f7}{f}", out_file.read_text(encoding="utf-8"))
 
     def test_recursive_directory_processing(self) -> None:
         with TemporaryDirectory() as tmpdir:

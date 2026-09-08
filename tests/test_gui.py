@@ -56,6 +56,8 @@ class GUITests(unittest.TestCase):
             self.assertEqual(app.mode_var.get(), "write")
             self.assertEqual(app.palette["main"], DEFAULT_COLORS["main"])
             self.assertFalse(app.is_recursive_var.get())
+            self.assertEqual(app.preset_var.get(), "all")
+            self.assertTrue(app.opt_data_flow.get())
         finally:
             sub_window.destroy()
 
