@@ -263,6 +263,7 @@ class ColorMathApp:
         ttk.Checkbutton(toggles_grid, text="Bra-Ket Notation", variable=self.opt_braket).grid(row=1, column=0, sticky=tk.W, padx=6, pady=2)
         ttk.Checkbutton(toggles_grid, text="Dimensionless (Re)", variable=self.opt_dimensionless).grid(row=1, column=1, sticky=tk.W, padx=6, pady=2)
         ttk.Checkbutton(toggles_grid, text="Semantic Taxonomy", variable=self.opt_taxonomy).grid(row=1, column=2, sticky=tk.W, padx=6, pady=2)
+        ttk.Checkbutton(toggles_grid, text="Variable Data-Flow (Hash)", variable=self.opt_data_flow).grid(row=2, column=0, sticky=tk.W, padx=6, pady=2)
 
         # Section 5: Action Buttons
         footer = ttk.Frame(main_frame, padding=(0, 10, 0, 0))
