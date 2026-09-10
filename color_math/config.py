@@ -251,7 +251,50 @@ MATH_CONSTANTS = {
     r"\Im",
     r"\top",
     r"\bot",
+    r"\imath",
+    r"\jmath",
+    r"\mathrm{e}",
+    r"\mathrm{i}",
+    r"\mathrm{j}",
 }
+
+
+FONT_STYLE_MACROS = frozenset({
+    r"\mathbf",
+    r"\mathcal",
+    r"\mathbb",
+    r"\mathfrak",
+    r"\mathsf",
+    r"\mathtt",
+    r"\mathit",
+    r"\boldsymbol",
+    r"\pmb",
+})
+
+
+BARE_FUNCTIONS = frozenset({
+    "sin",
+    "cos",
+    "tan",
+    "csc",
+    "sec",
+    "cot",
+    "arcsin",
+    "arccos",
+    "arctan",
+    "arccsc",
+    "arcsec",
+    "arccot",
+    "sinh",
+    "cosh",
+    "tanh",
+    "coth",
+    "sech",
+    "csch",
+    "ln",
+    "log",
+    "exp",
+})
 
 
 MATH_ACCENTS = {
@@ -387,6 +430,8 @@ class ColorMathOptions:
     color_differentials: bool = False
     color_braket: bool = False
     color_dimensionless: bool = False
+    color_alignment: bool = True
+    color_single_constants: bool = True
 
     @classmethod
     def extended(cls) -> ColorMathOptions:
@@ -399,6 +444,8 @@ class ColorMathOptions:
             color_differentials=True,
             color_braket=True,
             color_dimensionless=True,
+            color_alignment=True,
+            color_single_constants=True,
         )
 
     @classmethod

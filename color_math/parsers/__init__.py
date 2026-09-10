@@ -23,6 +23,8 @@ from .dimensionless import DimensionlessSpan, find_dimensionless_spans, collect_
 from .delimiters import DelimiterPair, find_delimiter_pairs, collect_delimiter_spans
 from .taxonomy import collect_taxonomy_spans
 from .variable_hash import collect_variable_spans
+from .constants import is_euler_constant, is_imaginary_unit, collect_single_constant_spans
+from .alignment import AlignmentSpan, find_alignment_spans, collect_alignment_spans
 
 
 __all__ = [
@@ -61,4 +63,10 @@ __all__ = [
     "collect_delimiter_spans",
     "collect_taxonomy_spans",
     "collect_variable_spans",
+    "is_euler_constant",
+    "is_imaginary_unit",
+    "collect_single_constant_spans",
+    "AlignmentSpan",
+    "find_alignment_spans",
+    "collect_alignment_spans",
 ]

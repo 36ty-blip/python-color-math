@@ -51,6 +51,12 @@ def _structural_source(body: str) -> str:
 
 def _is_matrix_expression(body: str) -> bool:
     structural = _structural_source(body)
+    # Equations containing arrows are state transitions or limits, not matrix algebra
+    if re.search(
+        r"\\(?:rightarrow|leftarrow|Rightarrow|Leftarrow|to|longrightarrow|longleftarrow|leftrightarrow|Leftrightarrow|mapsto)",
+        structural,
+    ):
+        return False
     operands = find_operand_spans(structural)
     indexed = [
         operand

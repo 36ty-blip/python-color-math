@@ -5,13 +5,22 @@ import unittest
 from color_math.config import DEFAULT_COLORS, ColorMathOptions
 from color_math.converters.block import convert_text
 from color_math.converters.generic import color_latex_body
-from color_math.parsers.units import find_unit_spans
-from color_math.parsers.differentials import find_differential_spans
+from color_math.converters.matrix import convert_matrix_block
+from color_math.parsers.alignment import find_alignment_spans, collect_alignment_spans
 from color_math.parsers.braket import find_braket_spans, collect_braket_delimiter_spans
-from color_math.parsers.dimensionless import find_dimensionless_spans
+from color_math.parsers.constants import (
+    collect_single_constant_spans,
+    is_euler_constant,
+    is_imaginary_unit,
+)
 from color_math.parsers.delimiters import find_delimiter_pairs, collect_delimiter_spans
+from color_math.parsers.differentials import find_differential_spans
+from color_math.parsers.dimensionless import find_dimensionless_spans
+from color_math.parsers.math_parser import find_semantic_spans
 from color_math.parsers.taxonomy import collect_taxonomy_spans
+from color_math.parsers.units import find_unit_spans
 from color_math.parsers.variable_hash import collect_variable_spans
+from color_math.utils.latex_helpers import normalize_latex_braces
 
 
 class FeatureTests(unittest.TestCase):
@@ -162,6 +171,77 @@ class FeatureTests(unittest.TestCase):
         converted_ext = convert_text(text, options=ColorMathOptions.extended())
         self.assertIn(f"\\textcolor{{{DEFAULT_COLORS['unit']}}}{{m/s}}", converted_ext)
         self.assertIn(f"\\textcolor{{{DEFAULT_COLORS['main']}}}{{Re}}", converted_ext)
+
+    def test_normalize_latex_braces(self) -> None:
+        self.assertEqual(normalize_latex_braces(r"\frac23"), r"\frac{2}{3}")
+        self.assertEqual(normalize_latex_braces(r"\sqrt V"), r"\sqrt{V}")
+        self.assertEqual(normalize_latex_braces(r"x^2 + y_n"), r"x^{2} + y_{n}")
+        self.assertEqual(normalize_latex_braces(r"\frac{a}{b}"), r"\frac{a}{b}")
+
+    def test_bare_math_functions(self) -> None:
+        # 1. math_parser finds semantic spans for bare functions
+        spans, err = find_semantic_spans(r"sin x + cos(y)")
+        self.assertIsNone(err)
+        fn_names = [s.value for s in spans if s.kind == "function"]
+        self.assertIn("sin", fn_names)
+        self.assertIn("cos", fn_names)
+
+        # 2. taxonomy colors bare functions
+        tax_spans = collect_taxonomy_spans(r"sin \theta + \cos \theta")
+        colored_names = [s.start for s in tax_spans if s.color == DEFAULT_COLORS["main"]]
+        self.assertTrue(len(colored_names) >= 2)
+
+        # 3. variable_hash skips bare functions without shredding into letters
+        var_spans = collect_variable_spans(r"sin(x)")
+        # only 'x' should be hashed as a variable
+        self.assertEqual(len(var_spans), 1)
+
+    def test_single_character_constants(self) -> None:
+        # Euler constant e
+        self.assertTrue(is_euler_constant("e^x", 0))
+        self.assertTrue(is_euler_constant("e^{-t}", 0))
+        self.assertFalse(is_euler_constant("error", 0))
+
+        # Imaginary unit i, j
+        self.assertTrue(is_imaginary_unit("2i", 1))
+        self.assertTrue(is_imaginary_unit(r"e^{i\pi}", 3))
+        self.assertTrue(is_imaginary_unit("x + iy", 4))
+        self.assertTrue(is_imaginary_unit("3j", 1))
+
+        # Shield macro names containing 'e' or 'i': \pi, \phi, \sin, \exp
+        self.assertFalse(is_imaginary_unit(r"\pi", 2))
+        self.assertFalse(is_euler_constant(r"\exp", 1))
+
+        # Collect spans
+        const_spans = collect_single_constant_spans(r"e^{i\pi}")
+        self.assertTrue(any(s.start == 0 for s in const_spans))  # e
+        self.assertTrue(any(s.start == 3 for s in const_spans))  # i
+
+    def test_alignment_delimiters(self) -> None:
+        body = r"a & b \\ c & d"
+        spans = find_alignment_spans(body)
+        self.assertEqual(len(spans), 3)  # 2 '&' and 1 '\\'
+
+        colored_spans = collect_alignment_spans(body)
+        self.assertEqual(len(colored_spans), 3)
+
+        # Ensure color_latex_body NEVER wraps & or \\ in \textcolor
+        colored_latex = color_latex_body(body)
+        self.assertNotIn(r"\textcolor{#f7768e}{&}", colored_latex)
+        self.assertNotIn(r"\textcolor{#f7768e}{\\}", colored_latex)
+
+    def test_arrow_guard_in_matrix(self) -> None:
+        # Atomic transition with subscript arrows should NOT be parsed as matrix block
+        transition = r"^{4}F_{3/2} \rightarrow {}^{4}I_{11/2}"
+        result = convert_matrix_block(f"$${transition}$$")
+        self.assertIsNone(result)
+
+    def test_font_style_macros(self) -> None:
+        # Single-letter unbraced argument boundary: \mathcal RAV -> only R styled
+        spans = collect_taxonomy_spans(r"\mathcal RAV")
+        math_cal_span = [s for s in spans if s.start == 0][0]
+        # Length of \mathcal R is 10 (or up to R)
+        self.assertEqual(r"\mathcal RAV"[math_cal_span.start:math_cal_span.end], r"\mathcal R")
 
 
 if __name__ == "__main__":

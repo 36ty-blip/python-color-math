@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from ..config import COLORS, ColorMathOptions
+from ..parsers.constants import collect_single_constant_spans
 from ..parsers.math_parser import find_semantic_spans
 from ..parsers.scanner import collect_scanner_spans
 from ..parsers.units import find_unit_spans, collect_unit_spans
@@ -14,7 +15,7 @@ from ..parsers.dimensionless import find_dimensionless_spans, collect_dimensionl
 from ..parsers.delimiters import collect_delimiter_spans
 from ..parsers.taxonomy import collect_taxonomy_spans
 from ..parsers.variable_hash import collect_variable_spans
-from ..utils.latex_helpers import contains_color_wrapper
+from ..utils.latex_helpers import contains_color_wrapper, normalize_latex_braces
 from ..utils.spans import ColorSpan, apply_color_spans
 
 
@@ -54,37 +55,42 @@ def color_latex_body(
     pal = palette or COLORS
     opts = options or ColorMathOptions()
 
-    unit_spans = find_unit_spans(body)
-    diff_spans = find_differential_spans(body)
-    dim_spans = find_dimensionless_spans(body)
+    normalized = normalize_latex_braces(body)
+
+    unit_spans = find_unit_spans(normalized)
+    diff_spans = find_differential_spans(normalized)
+    dim_spans = find_dimensionless_spans(normalized)
 
     spans: list[ColorSpan] = [
-        *collect_function_spans(body, pal),
-        *collect_scanner_spans(body),
+        *collect_function_spans(normalized, pal),
+        *collect_scanner_spans(normalized),
     ]
 
     if opts.color_units:
-        spans.extend(collect_unit_spans(body, pal, unit_spans))
+        spans.extend(collect_unit_spans(normalized, pal, unit_spans))
 
     if opts.color_differentials:
-        spans.extend(collect_differential_spans(body, pal, diff_spans))
+        spans.extend(collect_differential_spans(normalized, pal, diff_spans))
 
     if opts.color_dimensionless:
-        spans.extend(collect_dimensionless_spans(body, pal, dim_spans))
+        spans.extend(collect_dimensionless_spans(normalized, pal, dim_spans))
 
     if opts.color_braket:
-        spans.extend(collect_braket_delimiter_spans(body, pal))
+        spans.extend(collect_braket_delimiter_spans(normalized, pal))
+
+    if opts.color_single_constants:
+        spans.extend(collect_single_constant_spans(normalized, pal))
 
     if opts.rainbow_delimiters:
-        spans.extend(collect_delimiter_spans(body))
+        spans.extend(collect_delimiter_spans(normalized))
 
     if opts.enable_taxonomy:
-        spans.extend(collect_taxonomy_spans(body, pal, unit_spans, diff_spans, dim_spans))
+        spans.extend(collect_taxonomy_spans(normalized, pal, unit_spans, diff_spans, dim_spans))
 
     if opts.variable_data_flow:
-        spans.extend(collect_variable_spans(body, None, unit_spans, diff_spans, dim_spans))
+        spans.extend(collect_variable_spans(normalized, None, unit_spans, diff_spans, dim_spans))
 
-    return apply_color_spans(body, spans)
+    return apply_color_spans(normalized, spans)
 
 
 def color_generic_math_line(

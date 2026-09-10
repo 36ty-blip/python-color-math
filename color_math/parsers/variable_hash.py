@@ -2,12 +2,19 @@
 from __future__ import annotations
 import re
 
-from ..config import VARIABLE_HASH_PALETTE, hash_string_to_color, MATH_ACCENTS
+from ..config import (
+    VARIABLE_HASH_PALETTE,
+    hash_string_to_color,
+    MATH_ACCENTS,
+    FONT_STYLE_MACROS,
+    BARE_FUNCTIONS,
+)
 from ..utils.spans import ColorSpan
 from ..utils.latex_helpers import read_color_command, read_braced
 from .units import find_unit_spans, UnitSpan
 from .differentials import find_differential_spans, DifferentialSpan
 from .dimensionless import find_dimensionless_spans, DimensionlessSpan
+from .constants import is_euler_constant, is_imaginary_unit
 
 
 OPAQUE_MACROS = frozenset({
@@ -93,6 +100,30 @@ def collect_variable_spans(
                                 idx = target_start + len(full_var)
                                 continue
 
+                if cmd_name in FONT_STYLE_MACROS:
+                    target_start = cmd_end
+                    while target_start < len(body) and body[target_start].isspace():
+                        target_start += 1
+                    if target_start < len(body):
+                        target_end = target_start + 1
+                        base_letter = "R"
+                        if body[target_start] == "{":
+                            braced = read_braced(body, target_start)
+                            if braced is not None:
+                                target_end = braced[1]
+                                bm = re.search(r"[a-zA-Z]", body[braced[0]:braced[1]])
+                                if bm:
+                                    base_letter = bm.group(0)
+                        else:
+                            let_m = re.match(r"^[a-zA-Z]('*)*", body[target_start:])
+                            if let_m:
+                                target_end = target_start + len(let_m.group(0))
+                                base_letter = let_m.group(0).replace("'", "")
+                        color = hash_string_to_color(base_letter, pal)
+                        spans.append(ColorSpan(idx, target_end, color, priority=15))
+                        idx = target_end
+                        continue
+
                 macro_key = cmd_name[1:]
                 if macro_key in OPAQUE_MACROS:
                     braced = read_braced(body, cmd_end)
@@ -102,6 +133,18 @@ def collect_variable_spans(
 
                 idx = cmd_end
                 continue
+
+        # Check bare math functions (sin, cos, tan, ln, exp, etc.) so they are NOT shredded into single-letter variables
+        bare_m = re.match(r"^([A-Za-z]+)(?![A-Za-z])", body[idx:])
+        if bare_m and bare_m.group(1).lower() in BARE_FUNCTIONS:
+            idx += len(bare_m.group(1))
+            continue
+
+        # Single-character constants 'e' and 'i'/'j'
+        if is_euler_constant(body, idx) or is_imaginary_unit(body, idx):
+            spans.append(ColorSpan(idx, idx + 1, "#e0af68", priority=22))
+            idx += 1
+            continue
 
         # Single letter variables (optionally with prime): x, y, z, t, x', y''
         var_m = re.match(r"^[a-zA-Z]('*)*", body[idx:])

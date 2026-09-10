@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from ..config import BARE_FUNCTIONS, MATH_FUNCTIONS
 from ..utils.latex_helpers import read_braced
 from .latex_spans import read_operand
 from .markdown_scanner import scan_markdown
@@ -267,6 +268,41 @@ def _collect_semantic_spans(
                     if opaque_end != command_end:
                         index = opaque_end
                         continue
+                if name in MATH_FUNCTIONS:
+                    arguments = _read_function_arguments(text, command_end, end)
+                    if arguments is not None:
+                        argument_start, argument_end, call_end = arguments
+                        spans.append(
+                            SemanticSpan(
+                                "function",
+                                name,
+                                index,
+                                command_end,
+                                depth,
+                            )
+                        )
+                        _collect_semantic_spans(
+                            text,
+                            argument_start,
+                            argument_end,
+                            depth + 1,
+                            spans,
+                            errors,
+                        )
+                        index = call_end
+                        continue
+                    else:
+                        spans.append(
+                            SemanticSpan(
+                                "function",
+                                name,
+                                index,
+                                command_end,
+                                depth,
+                            )
+                        )
+                        index = command_end
+                        continue
                 index = command_end
                 continue
 
@@ -298,6 +334,18 @@ def _collect_semantic_spans(
 
             if name_end < end and text[name_end] == "(":
                 errors.append(f"unclosed function call after {name_match.group(0)!r}")
+            elif name_match.group(0).lower() in BARE_FUNCTIONS:
+                spans.append(
+                    SemanticSpan(
+                        "function",
+                        name_match.group(0),
+                        index,
+                        name_end,
+                        depth,
+                    )
+                )
+                index = name_end
+                continue
             index = name_end
             continue
 

@@ -230,3 +230,180 @@ def contains_color_wrapper(text: str) -> bool:
             continue
         index += 1
     return False
+
+
+class _ParsedMacroArg:
+    def __init__(self, raw: str, inner: str, end: int, braced: bool):
+        self.raw = raw
+        self.inner = inner
+        self.end = end
+        self.braced = braced
+
+
+TWO_ARG_COMMANDS = frozenset({
+    r"\frac",
+    r"\dfrac",
+    r"\tfrac",
+    r"\cfrac",
+    r"\binom",
+    r"\dbinom",
+    r"\tbinom",
+    r"\overset",
+    r"\underset",
+    r"\stackrel",
+})
+
+OPAQUE_TEXT_COMMANDS = frozenset({
+    r"\text",
+    r"\mathrm",
+    r"\textbf",
+    r"\textit",
+    r"\texttt",
+    r"\textrm",
+})
+
+
+def _skip_ignorable_whitespace(text: str, start: int) -> int:
+    index = start
+    while index < len(text):
+        if text[index].isspace():
+            index += 1
+            continue
+        if text[index] == "%":
+            index = read_comment_end(text, index)
+            continue
+        break
+    return index
+
+
+def _read_single_macro_arg(text: str, start: int) -> _ParsedMacroArg | None:
+    index = _skip_ignorable_whitespace(text, start)
+    if index >= len(text):
+        return None
+
+    if text[index] == "{":
+        braced = read_braced(text, index)
+        if braced is not None:
+            return _ParsedMacroArg(
+                raw=braced[0],
+                inner=braced[0][1:-1],
+                end=braced[1],
+                braced=True,
+            )
+        return None
+
+    if text[index] == "\\":
+        cmd = COMMAND_RE.match(text, index)
+        if cmd is not None:
+            cmd_str = cmd.group(0)
+            return _ParsedMacroArg(
+                raw=cmd_str,
+                inner=cmd_str,
+                end=index + len(cmd_str),
+                braced=False,
+            )
+
+    return _ParsedMacroArg(
+        raw=text[index],
+        inner=text[index],
+        end=index + 1,
+        braced=False,
+    )
+
+
+def normalize_latex_braces(source: str) -> str:
+    r"""Normalizes unbraced arguments in LaTeX expressions.
+    e.g. \frac2L -> \frac{2}{L}, \sqrt V -> \sqrt{V},
+    \frac VI -> \frac{V}{I}, E_n -> E_{n}, x^2 -> x^{2}.
+    Guarantees that subsequent \textcolor wrapping never breaks TeX grammar.
+    """
+    result: list[str] = []
+    index = 0
+
+    while index < len(source):
+        if source[index] == "%":
+            end = read_comment_end(source, index)
+            result.append(source[index:end])
+            index = end
+            continue
+
+        if source[index] in "^_":
+            marker = source[index]
+            arg = _read_single_macro_arg(source, index + 1)
+            if arg is not None:
+                norm_inner = (
+                    normalize_latex_braces(arg.inner)
+                    if arg.braced
+                    else normalize_latex_braces(arg.raw)
+                )
+                result.append(f"{marker}{{{norm_inner}}}")
+                index = arg.end
+                continue
+            else:
+                result.append(marker)
+                index += 1
+                continue
+
+        if source[index] == "\\":
+            verb = read_verb_end(source, index)
+            if verb is not None:
+                v_end = verb[0]
+                result.append(source[index:v_end])
+                index = v_end
+                continue
+
+            cmd_match = COMMAND_RE.match(source, index)
+            if cmd_match is not None:
+                cmd = cmd_match.group(0)
+                cmd_end = index + len(cmd)
+
+                if cmd in OPAQUE_TEXT_COMMANDS:
+                    braced = read_braced(source, cmd_end)
+                    if braced is not None:
+                        result.append(f"{cmd}{braced[0]}")
+                        index = braced[1]
+                        continue
+
+                if cmd in TWO_ARG_COMMANDS:
+                    arg1 = _read_single_macro_arg(source, cmd_end)
+                    if arg1 is not None:
+                        arg2 = _read_single_macro_arg(source, arg1.end)
+                        if arg2 is not None:
+                            norm1 = (
+                                normalize_latex_braces(arg1.inner)
+                                if arg1.braced
+                                else normalize_latex_braces(arg1.raw)
+                            )
+                            norm2 = (
+                                normalize_latex_braces(arg2.inner)
+                                if arg2.braced
+                                else normalize_latex_braces(arg2.raw)
+                            )
+                            result.append(f"{cmd}{{{norm1}}}{{{norm2}}}")
+                            index = arg2.end
+                            continue
+
+                elif cmd == r"\sqrt":
+                    cur = _skip_ignorable_whitespace(source, cmd_end)
+                    optional = ""
+                    if cur < len(source) and source[cur] == "[":
+                        opt_close = source.find("]", cur)
+                        if opt_close != -1:
+                            optional = source[cur : opt_close + 1]
+                            cur = opt_close + 1
+                    arg = _read_single_macro_arg(source, cur)
+                    if arg is not None:
+                        norm = (
+                            normalize_latex_braces(arg.inner)
+                            if arg.braced
+                            else normalize_latex_braces(arg.raw)
+                        )
+                        result.append(f"{cmd}{optional}{{{norm}}}")
+                        index = arg.end
+                        continue
+
+        result.append(source[index])
+        index += 1
+
+    return "".join(result)
+

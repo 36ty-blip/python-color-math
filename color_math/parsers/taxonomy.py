@@ -2,7 +2,15 @@
 from __future__ import annotations
 import re
 
-from ..config import COLORS, MATH_CONSTANTS, MATH_PARAMETERS, MATH_FUNCTIONS
+from ..config import (
+    COLORS,
+    MATH_CONSTANTS,
+    MATH_PARAMETERS,
+    MATH_FUNCTIONS,
+    BARE_FUNCTIONS,
+    MATH_ACCENTS,
+    FONT_STYLE_MACROS,
+)
 from ..utils.spans import ColorSpan
 from ..utils.latex_helpers import read_color_command, read_braced
 from .units import find_unit_spans, UnitSpan
@@ -70,6 +78,21 @@ def collect_taxonomy_spans(
             idx = next(d.end for d in dims if d.start <= idx < d.end)
             continue
 
+        # Bare math functions (sin, cos, tan, ln, exp, etc.)
+        bare_m = re.match(r"^([A-Za-z]+)(?![A-Za-z])", body[idx:])
+        if bare_m and bare_m.group(1).lower() in BARE_FUNCTIONS:
+            fn_name = bare_m.group(1)
+            spans.append(
+                ColorSpan(
+                    idx,
+                    idx + len(fn_name),
+                    pal.get("main", "#7aa2f7"),
+                    priority=22,
+                )
+            )
+            idx += len(fn_name)
+            continue
+
         if body[idx] == "\\":
             m = re.match(r"^(\\[A-Za-z]+|\\.)", body[idx:])
             if m:
@@ -83,7 +106,7 @@ def collect_taxonomy_spans(
                         idx = braced[1]
                         continue
 
-                if cmd_name in ("\\dot", "\\ddot", "\\dddot"):
+                if cmd_name in MATH_ACCENTS:
                     target_start = cmd_end
                     while target_start < len(body) and body[target_start].isspace():
                         target_start += 1
@@ -97,7 +120,9 @@ def collect_taxonomy_spans(
                             let_m = re.match(r"^[a-zA-Z]('*)*", body[target_start:])
                             if let_m:
                                 target_end = target_start + len(let_m.group(0))
-                        spans.append(ColorSpan(idx, target_end, pal.get("derivative", "#bb9af7"), priority=22))
+                        is_dot = cmd_name in (r"\dot", r"\ddot", r"\dddot", r"\ddddot")
+                        color = pal.get("derivative", "#bb9af7") if is_dot else pal.get("parameter", pal.get("main", "#7aa2f7"))
+                        spans.append(ColorSpan(idx, target_end, color, priority=22))
                         idx = target_end
                         continue
 
@@ -115,6 +140,24 @@ def collect_taxonomy_spans(
                     spans.append(ColorSpan(idx, cmd_end, pal.get("parameter", pal.get("derivative", "#bb9af7")), priority=20))
                     idx = cmd_end
                     continue
+
+                if cmd_name in FONT_STYLE_MACROS:
+                    target_start = cmd_end
+                    while target_start < len(body) and body[target_start].isspace():
+                        target_start += 1
+                    if target_start < len(body):
+                        target_end = target_start + 1
+                        if body[target_start] == "{":
+                            braced = read_braced(body, target_start)
+                            if braced is not None:
+                                target_end = braced[1]
+                        else:
+                            let_m = re.match(r"^[a-zA-Z]('*)*", body[target_start:])
+                            if let_m:
+                                target_end = target_start + len(let_m.group(0))
+                        spans.append(ColorSpan(idx, target_end, pal.get("main", "#7aa2f7"), priority=20))
+                        idx = target_end
+                        continue
 
                 idx = cmd_end
                 continue
