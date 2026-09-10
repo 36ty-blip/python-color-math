@@ -359,16 +359,33 @@ EXTENDED_BARE_FUNCTIONS = frozenset({
     "ext",
     "pic",
     "cl",
+    "jac",
+    "hes",
+    "wr",
+    "vol",
+    "rms",
+    "fft",
+    "dft",
+    "ord",
+    "val",
+    "num",
+    "den",
+    "sn",
+    "cn",
+    "dn",
+    "avg",
+    "len",
 })
 
-ALL_BARE_FUNCTIONS = STANDARD_BARE_FUNCTIONS | EXTENDED_BARE_FUNCTIONS
-BARE_FUNCTIONS = ALL_BARE_FUNCTIONS
+FULL_BARE_FUNCTIONS = STANDARD_BARE_FUNCTIONS | EXTENDED_BARE_FUNCTIONS
+ALL_BARE_FUNCTIONS = FULL_BARE_FUNCTIONS
+BARE_FUNCTIONS = FULL_BARE_FUNCTIONS
 
 
 def get_bare_functions(options: ColorMathOptions | None = None) -> frozenset[str]:
     if options is not None and not options.extended_functions:
         return STANDARD_BARE_FUNCTIONS
-    return ALL_BARE_FUNCTIONS
+    return FULL_BARE_FUNCTIONS
 
 
 MATH_ACCENTS = {
@@ -509,6 +526,22 @@ MATH_FUNCTIONS = {
     r"\ext",
     r"\pic",
     r"\cl",
+    r"\jac",
+    r"\hes",
+    r"\wr",
+    r"\vol",
+    r"\rms",
+    r"\fft",
+    r"\dft",
+    r"\ord",
+    r"\val",
+    r"\num",
+    r"\den",
+    r"\sn",
+    r"\cn",
+    r"\dn",
+    r"\avg",
+    r"\len",
 }
 
 

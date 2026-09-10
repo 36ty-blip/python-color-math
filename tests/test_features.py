@@ -332,6 +332,24 @@ $$"""
         self.assertNotIn(f"\\textcolor{{{color_c}}}{{c}}", res_on)
         self.assertNotIn(f"\\textcolor{{{color_s}}}{{s}}", res_on)
 
+    def test_full_bare_functions_and_new_extended(self) -> None:
+        from color_math.config import FULL_BARE_FUNCTIONS, EXTENDED_BARE_FUNCTIONS, STANDARD_BARE_FUNCTIONS
+        new_funcs = ["jac", "hes", "wr", "vol", "rms", "fft", "dft", "ord", "val", "num", "den", "sn", "cn", "dn", "avg", "len"]
+        for f in new_funcs:
+            self.assertIn(f, EXTENDED_BARE_FUNCTIONS)
+            self.assertIn(f, FULL_BARE_FUNCTIONS)
+        self.assertEqual(FULL_BARE_FUNCTIONS, STANDARD_BARE_FUNCTIONS | EXTENDED_BARE_FUNCTIONS)
+
+        # Verify parsing with extended functions switch
+        expr = "jac(f) + wr(y)"
+        opts_on = ColorMathOptions(variable_data_flow=True, enable_taxonomy=True, extended_functions=True)
+        res_on = color_latex_body(expr, options=opts_on)
+        self.assertIn("jac", res_on)
+        self.assertIn("wr", res_on)
+        color_w = hash_string_to_color("w")
+        self.assertNotIn(f"\\textcolor{{{color_w}}}{{w}}", res_on)
+
 
 if __name__ == "__main__":
     unittest.main()
+
