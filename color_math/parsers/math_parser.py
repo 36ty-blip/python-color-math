@@ -268,6 +268,69 @@ def _collect_semantic_spans(
                     if opaque_end != command_end:
                         index = opaque_end
                         continue
+
+                # Skip environment arguments: \begin{bmatrix}, \end{cases}
+                if name in (r"\begin", r"\end"):
+                    after_cmd = command_end
+                    while after_cmd < end and text[after_cmd].isspace():
+                        after_cmd += 1
+                    if after_cmd < end and text[after_cmd] == "{":
+                        group = read_braced(text, after_cmd)
+                        if group is not None and group[1] <= end:
+                            index = group[1]
+                            continue
+                    index = command_end
+                    continue
+
+                # Custom operators: \operatorname{rank}(A)
+                if name == r"\operatorname":
+                    after_cmd = command_end
+                    if after_cmd < end and text[after_cmd] == "*":
+                        after_cmd += 1
+                    while after_cmd < end and text[after_cmd].isspace():
+                        after_cmd += 1
+                    if after_cmd < end and text[after_cmd] == "{":
+                        group = read_braced(text, after_cmd)
+                        if group is not None and group[1] <= end:
+                            op_end = group[1]
+                            args = _read_function_arguments(text, op_end, end)
+                            if args is not None:
+                                argument_start, argument_end, call_end = args
+                                spans.append(
+                                    SemanticSpan(
+                                        "function",
+                                        text[index:op_end],
+                                        index,
+                                        op_end,
+                                        depth,
+                                    )
+                                )
+                                _collect_semantic_spans(
+                                    text,
+                                    argument_start,
+                                    argument_end,
+                                    depth + 1,
+                                    spans,
+                                    errors,
+                                )
+                                index = call_end
+                                continue
+                            inner_text = text[after_cmd + 1:op_end - 1].strip()
+                            if inner_text.lower() in BARE_FUNCTIONS:
+                                spans.append(
+                                    SemanticSpan(
+                                        "function",
+                                        text[index:op_end],
+                                        index,
+                                        op_end,
+                                        depth,
+                                    )
+                                )
+                                index = op_end
+                                continue
+                            index = op_end
+                            continue
+
                 if name in MATH_FUNCTIONS:
                     arguments = _read_function_arguments(text, command_end, end)
                     if arguments is not None:
@@ -308,37 +371,54 @@ def _collect_semantic_spans(
 
         name_match = NAME_RE.match(text, index, end)
         if name_match is not None:
+            name = name_match.group(0)
+            base_name = name.replace("'", "")
             name_end = name_match.end()
             arguments = _read_function_arguments(text, name_end, end)
             if arguments is not None:
-                argument_start, argument_end, call_end = arguments
-                spans.append(
-                    SemanticSpan(
-                        "function",
-                        name_match.group(0),
-                        index,
-                        name_end,
-                        depth,
+                is_multi_var = len(base_name) >= 2 and base_name.lower() not in BARE_FUNCTIONS and len(base_name) < 4
+                if not is_multi_var:
+                    argument_start, argument_end, call_end = arguments
+                    spans.append(
+                        SemanticSpan(
+                            "function",
+                            name,
+                            index,
+                            name_end,
+                            depth,
+                        )
                     )
-                )
-                _collect_semantic_spans(
-                    text,
-                    argument_start,
-                    argument_end,
-                    depth + 1,
-                    spans,
-                    errors,
-                )
-                index = call_end
-                continue
+                    _collect_semantic_spans(
+                        text,
+                        argument_start,
+                        argument_end,
+                        depth + 1,
+                        spans,
+                        errors,
+                    )
+                    index = call_end
+                    continue
+                else:
+                    # Multi-variable product like ax(y + z): not a function call!
+                    argument_start, argument_end, call_end = arguments
+                    _collect_semantic_spans(
+                        text,
+                        argument_start,
+                        argument_end,
+                        depth,
+                        spans,
+                        errors,
+                    )
+                    index = call_end
+                    continue
 
             if name_end < end and text[name_end] == "(":
-                errors.append(f"unclosed function call after {name_match.group(0)!r}")
-            elif name_match.group(0).lower() in BARE_FUNCTIONS:
+                errors.append(f"unclosed function call after {name!r}")
+            elif name.lower() in BARE_FUNCTIONS:
                 spans.append(
                     SemanticSpan(
                         "function",
-                        name_match.group(0),
+                        name,
                         index,
                         name_end,
                         depth,

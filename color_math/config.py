@@ -294,6 +294,25 @@ BARE_FUNCTIONS = frozenset({
     "ln",
     "log",
     "exp",
+    "det",
+    "gcd",
+    "max",
+    "min",
+    "dim",
+    "ker",
+    "hom",
+    "deg",
+    "arg",
+    "Pr",
+    "sup",
+    "inf",
+    "rank",
+    "nullity",
+    "tr",
+    "trace",
+    "span",
+    "diag",
+    "sgn",
 })
 
 
@@ -387,6 +406,13 @@ MATH_FUNCTIONS = {
     r"\Pr",
     r"\sup",
     r"\inf",
+    r"\rank",
+    r"\nullity",
+    r"\tr",
+    r"\trace",
+    r"\span",
+    r"\diag",
+    r"\sgn",
 }
 
 

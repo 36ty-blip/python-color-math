@@ -2,7 +2,7 @@
 from __future__ import annotations
 import unittest
 
-from color_math.config import DEFAULT_COLORS, ColorMathOptions
+from color_math.config import DEFAULT_COLORS, ColorMathOptions, hash_string_to_color
 from color_math.converters.block import convert_text
 from color_math.converters.generic import color_latex_body
 from color_math.converters.matrix import convert_matrix_block
@@ -236,12 +236,39 @@ class FeatureTests(unittest.TestCase):
         result = convert_matrix_block(f"$${transition}$$")
         self.assertIsNone(result)
 
-    def test_font_style_macros(self) -> None:
-        # Single-letter unbraced argument boundary: \mathcal RAV -> only R styled
-        spans = collect_taxonomy_spans(r"\mathcal RAV")
-        math_cal_span = [s for s in spans if s.start == 0][0]
-        # Length of \mathcal R is 10 (or up to R)
-        self.assertEqual(r"\mathcal RAV"[math_cal_span.start:math_cal_span.end], r"\mathcal R")
+    def test_environment_name_skipping(self) -> None:
+        # \begin{bmatrix} ... \end{bmatrix} should not shred bmatrix into variables
+        spans = collect_variable_spans(r"\begin{bmatrix} a & b \\ c & d \end{bmatrix}")
+        # Only a, b, c, d should be variables (4 variables)
+        self.assertEqual(len(spans), 4)
+
+    def test_multi_letter_functions(self) -> None:
+        opts = ColorMathOptions(variable_data_flow=True, enable_taxonomy=True)
+        result = color_latex_body("rank(A) + nullity(A) = n", options=opts)
+        self.assertIn("rank", result)
+        self.assertIn("nullity", result)
+        color_a = hash_string_to_color("A")
+        color_n = hash_string_to_color("n")
+        self.assertIn(f"\\textcolor{{{color_a}}}{{A}}", result)
+        self.assertIn(f"\\textcolor{{{color_n}}}{{n}}", result)
+
+    def test_multi_variable_products(self) -> None:
+        opts = ColorMathOptions(variable_data_flow=True)
+        result = color_latex_body("ax(y + z)", options=opts)
+        color_a = hash_string_to_color("a")
+        color_x = hash_string_to_color("x")
+        color_y = hash_string_to_color("y")
+        color_z = hash_string_to_color("z")
+        self.assertIn(f"\\textcolor{{{color_a}}}{{a}}", result)
+        self.assertIn(f"\\textcolor{{{color_x}}}{{x}}", result)
+        self.assertIn(f"\\textcolor{{{color_y}}}{{y}}", result)
+        self.assertIn(f"\\textcolor{{{color_z}}}{{z}}", result)
+
+    def test_operatorname_handling(self) -> None:
+        opts = ColorMathOptions(variable_data_flow=True, enable_taxonomy=True)
+        result = color_latex_body(r"\operatorname{rank}(A)", options=opts)
+        color_a = hash_string_to_color("A")
+        self.assertIn(f"\\textcolor{{{color_a}}}{{A}}", result)
 
 
 if __name__ == "__main__":

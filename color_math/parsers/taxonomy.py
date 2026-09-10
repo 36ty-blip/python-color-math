@@ -99,12 +99,45 @@ def collect_taxonomy_spans(
                 cmd_name = m.group(1)
                 cmd_end = idx + len(cmd_name)
 
+                # Skip environment arguments: \begin{bmatrix}, \end{cases}
+                if cmd_name in (r"\begin", r"\end"):
+                    after_cmd = cmd_end
+                    while after_cmd < len(body) and body[after_cmd].isspace():
+                        after_cmd += 1
+                    if after_cmd < len(body) and body[after_cmd] == "{":
+                        braced = read_braced(body, after_cmd)
+                        if braced is not None:
+                            idx = braced[1]
+                            continue
+                    idx = cmd_end
+                    continue
+
+                # Color custom operators as functions: \operatorname{rank}, \operatorname*{argmin}
+                if cmd_name == r"\operatorname":
+                    after_cmd = cmd_end
+                    if after_cmd < len(body) and body[after_cmd] == "*":
+                        after_cmd += 1
+                    while after_cmd < len(body) and body[after_cmd].isspace():
+                        after_cmd += 1
+                    if after_cmd < len(body) and body[after_cmd] == "{":
+                        braced = read_braced(body, after_cmd)
+                        if braced is not None:
+                            spans.append(ColorSpan(idx, braced[1], pal.get("main", "#7aa2f7"), priority=22))
+                            idx = braced[1]
+                            continue
+                    idx = cmd_end
+                    continue
+
                 macro_key = cmd_name[1:]
                 if macro_key in OPAQUE_MACROS:
-                    braced = read_braced(body, cmd_end)
-                    if braced is not None:
-                        idx = braced[1]
-                        continue
+                    after_cmd = cmd_end
+                    while after_cmd < len(body) and body[after_cmd].isspace():
+                        after_cmd += 1
+                    if after_cmd < len(body) and body[after_cmd] == "{":
+                        braced = read_braced(body, after_cmd)
+                        if braced is not None:
+                            idx = braced[1]
+                            continue
 
                 if cmd_name in MATH_ACCENTS:
                     target_start = cmd_end

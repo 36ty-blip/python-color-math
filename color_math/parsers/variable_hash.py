@@ -74,6 +74,34 @@ def collect_variable_spans(
                 cmd_name = m.group(1)
                 cmd_end = idx + len(cmd_name)
 
+                # Skip environment arguments: \begin{bmatrix}, \end{cases}
+                if cmd_name in (r"\begin", r"\end"):
+                    after_cmd = cmd_end
+                    while after_cmd < len(body) and body[after_cmd].isspace():
+                        after_cmd += 1
+                    if after_cmd < len(body) and body[after_cmd] == "{":
+                        braced = read_braced(body, after_cmd)
+                        if braced is not None:
+                            idx = braced[1]
+                            continue
+                    idx = cmd_end
+                    continue
+
+                # Skip custom operator name: \operatorname{rank}, \operatorname*{argmin}
+                if cmd_name == r"\operatorname":
+                    after_cmd = cmd_end
+                    if after_cmd < len(body) and body[after_cmd] == "*":
+                        after_cmd += 1
+                    while after_cmd < len(body) and body[after_cmd].isspace():
+                        after_cmd += 1
+                    if after_cmd < len(body) and body[after_cmd] == "{":
+                        braced = read_braced(body, after_cmd)
+                        if braced is not None:
+                            idx = braced[1]
+                            continue
+                    idx = cmd_end
+                    continue
+
                 # Accents like \dot, \ddot, \vec, \hat, \bar, \tilde
                 if cmd_name in MATH_ACCENTS:
                     target_start = cmd_end
@@ -126,19 +154,49 @@ def collect_variable_spans(
 
                 macro_key = cmd_name[1:]
                 if macro_key in OPAQUE_MACROS:
-                    braced = read_braced(body, cmd_end)
-                    if braced is not None:
-                        idx = braced[1]
-                        continue
+                    after_cmd = cmd_end
+                    while after_cmd < len(body) and body[after_cmd].isspace():
+                        after_cmd += 1
+                    if after_cmd < len(body) and body[after_cmd] == "{":
+                        braced = read_braced(body, after_cmd)
+                        if braced is not None:
+                            idx = braced[1]
+                            continue
 
                 idx = cmd_end
                 continue
 
-        # Check bare math functions (sin, cos, tan, ln, exp, etc.) so they are NOT shredded into single-letter variables
-        bare_m = re.match(r"^([A-Za-z]+)(?![A-Za-z])", body[idx:])
-        if bare_m and bare_m.group(1).lower() in BARE_FUNCTIONS:
-            idx += len(bare_m.group(1))
-            continue
+        # Check bare math functions or function calls before '('
+        word_m = re.match(r"^([A-Za-z]+)(?![A-Za-z])", body[idx:])
+        if word_m:
+            word = word_m.group(1)
+            lower_word = word.lower()
+
+            # 1. Bare functions without parentheses: sin x, ln x, rank A, det M
+            if lower_word in BARE_FUNCTIONS:
+                idx += len(word)
+                continue
+
+            # 2. Check if followed by parentheses: rank(A), nullity(A), f(x), ax(y + z)
+            after_word = body[idx + len(word):].lstrip()
+            has_args = after_word.startswith("(") or after_word.startswith(r"\left(")
+            if has_args:
+                if len(word) >= 4:
+                    # Multi-letter function call: skip entire word
+                    idx += len(word)
+                    continue
+                elif len(word) == 1:
+                    # Single-letter function call: skip function name
+                    idx += 1
+                    continue
+                else:
+                    # 2 or 3 letters not in BARE_FUNCTIONS (e.g. ax in ax(y + z))
+                    # Treat as distinct single-letter variables multiplied together!
+                    for i, letter in enumerate(word):
+                        color = hash_string_to_color(letter, pal)
+                        spans.append(ColorSpan(idx + i, idx + i + 1, color, priority=15))
+                    idx += len(word)
+                    continue
 
         # Single-character constants 'e' and 'i'/'j'
         if is_euler_constant(body, idx) or is_imaginary_unit(body, idx):
@@ -153,13 +211,8 @@ def collect_variable_spans(
             base_letter = full_var.replace("'", "")
             var_end = idx + len(full_var)
 
-            # Check if followed by ( or \left( -> function call like f(x)
-            after_var = body[var_end:].lstrip()
-            is_function = after_var.startswith("(") or after_var.startswith(r"\left(")
-
-            if not is_function:
-                color = hash_string_to_color(base_letter, pal)
-                spans.append(ColorSpan(idx, var_end, color, priority=15))
+            color = hash_string_to_color(base_letter, pal)
+            spans.append(ColorSpan(idx, var_end, color, priority=15))
 
             idx = var_end
             continue
