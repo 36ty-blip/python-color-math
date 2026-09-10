@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from ..config import COLORS, ColorMathOptions
+from ..config import COLORS, ColorMathOptions, get_bare_functions, BARE_FUNCTIONS
 from ..parsers.constants import collect_single_constant_spans
 from ..parsers.math_parser import find_semantic_spans
 from ..parsers.scanner import collect_scanner_spans
@@ -25,10 +25,14 @@ MATH_LINE_RE = re.compile(
 FUNCTION_COLOR_NAMES = ("main", "derivative", "chain")
 
 
-def collect_function_spans(body: str, palette: dict[str, str] | None = None) -> list[ColorSpan]:
+def collect_function_spans(
+    body: str,
+    palette: dict[str, str] | None = None,
+    bare_functions: frozenset[str] | None = None,
+) -> list[ColorSpan]:
     """Color nested call names and recognize literal constants."""
     pal = palette or COLORS
-    semantic, _ = find_semantic_spans(body)
+    semantic, _ = find_semantic_spans(body, bare_functions or BARE_FUNCTIONS)
     spans: list[ColorSpan] = []
     for item in semantic:
         if item.kind == "function":
@@ -61,8 +65,10 @@ def color_latex_body(
     diff_spans = find_differential_spans(normalized)
     dim_spans = find_dimensionless_spans(normalized)
 
+    bare_functions = get_bare_functions(opts)
+
     spans: list[ColorSpan] = [
-        *collect_function_spans(normalized, pal),
+        *collect_function_spans(normalized, pal, bare_functions),
         *collect_scanner_spans(normalized),
     ]
 
@@ -88,7 +94,7 @@ def color_latex_body(
         spans.extend(collect_taxonomy_spans(normalized, pal, unit_spans, diff_spans, dim_spans))
 
     if opts.variable_data_flow:
-        spans.extend(collect_variable_spans(normalized, None, unit_spans, diff_spans, dim_spans))
+        spans.extend(collect_variable_spans(normalized, None, unit_spans, diff_spans, dim_spans, bare_functions))
 
     return apply_color_spans(normalized, spans)
 

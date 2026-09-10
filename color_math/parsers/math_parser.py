@@ -249,6 +249,7 @@ def _collect_semantic_spans(
     depth: int,
     spans: list[SemanticSpan],
     errors: list[str],
+    bare_functions: frozenset[str] = BARE_FUNCTIONS,
 ) -> None:
     index = start
     while index < end:
@@ -312,11 +313,12 @@ def _collect_semantic_spans(
                                     depth + 1,
                                     spans,
                                     errors,
+                                    bare_functions,
                                 )
                                 index = call_end
                                 continue
                             inner_text = text[after_cmd + 1:op_end - 1].strip()
-                            if inner_text.lower() in BARE_FUNCTIONS:
+                            if inner_text.lower() in bare_functions:
                                 spans.append(
                                     SemanticSpan(
                                         "function",
@@ -351,6 +353,7 @@ def _collect_semantic_spans(
                             depth + 1,
                             spans,
                             errors,
+                            bare_functions,
                         )
                         index = call_end
                         continue
@@ -376,7 +379,7 @@ def _collect_semantic_spans(
             name_end = name_match.end()
             arguments = _read_function_arguments(text, name_end, end)
             if arguments is not None:
-                is_multi_var = len(base_name) >= 2 and base_name.lower() not in BARE_FUNCTIONS and len(base_name) < 4
+                is_multi_var = len(base_name) >= 2 and base_name.lower() not in bare_functions and len(base_name) < 4
                 if not is_multi_var:
                     argument_start, argument_end, call_end = arguments
                     spans.append(
@@ -395,6 +398,7 @@ def _collect_semantic_spans(
                         depth + 1,
                         spans,
                         errors,
+                        bare_functions,
                     )
                     index = call_end
                     continue
@@ -408,13 +412,14 @@ def _collect_semantic_spans(
                         depth,
                         spans,
                         errors,
+                        bare_functions,
                     )
                     index = call_end
                     continue
 
             if name_end < end and text[name_end] == "(":
                 errors.append(f"unclosed function call after {name!r}")
-            elif name.lower() in BARE_FUNCTIONS:
+            elif name.lower() in bare_functions:
                 spans.append(
                     SemanticSpan(
                         "function",
@@ -446,11 +451,14 @@ def _collect_semantic_spans(
         index += 1
 
 
-def find_semantic_spans(source: str) -> tuple[tuple[SemanticSpan, ...], str | None]:
+def find_semantic_spans(
+    source: str,
+    bare_functions: frozenset[str] = BARE_FUNCTIONS,
+) -> tuple[tuple[SemanticSpan, ...], str | None]:
     """Recognize plain nested calls and constants without rewriting LaTeX."""
     spans: list[SemanticSpan] = []
     errors: list[str] = []
-    _collect_semantic_spans(source, 0, len(source), 0, spans, errors)
+    _collect_semantic_spans(source, 0, len(source), 0, spans, errors, bare_functions)
     return tuple(spans), errors[0] if errors else None
 
 

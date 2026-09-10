@@ -299,6 +299,39 @@ $$"""
         self.assertIn(r"\begin{bmatrix}", baked)
         self.assertNotIn(r"\textcolor{#bb9af7}{\begin{bmatrix}", baked)
 
+    def test_extended_functions_switch(self) -> None:
+        expr = "ch(x) + sp(v)"
+        # 1. Switch OFF: 2-letter contradictory functions treated as variable multiplication
+        opts_off = ColorMathOptions(
+            variable_data_flow=True,
+            enable_taxonomy=True,
+            extended_functions=False,
+        )
+        res_off = color_latex_body(expr, options=opts_off)
+        color_c = hash_string_to_color("c")
+        color_h = hash_string_to_color("h")
+        color_s = hash_string_to_color("s")
+        color_p = hash_string_to_color("p")
+        self.assertIn(f"\\textcolor{{{color_c}}}{{c}}", res_off)
+        self.assertIn(f"\\textcolor{{{color_h}}}{{h}}", res_off)
+        self.assertIn(f"\\textcolor{{{color_s}}}{{s}}", res_off)
+        self.assertIn(f"\\textcolor{{{color_p}}}{{p}}", res_off)
+
+        # Core functions like sin(x) remain functions even when switch is off
+        sin_res = color_latex_body("sin(x)", options=opts_off)
+        self.assertNotIn(f"\\textcolor{{{color_s}}}{{s}}", sin_res)
+        self.assertIn("sin", sin_res)
+
+        # 2. Switch ON (default): ch and sp are unified functions
+        opts_on = ColorMathOptions(
+            variable_data_flow=True,
+            enable_taxonomy=True,
+            extended_functions=True,
+        )
+        res_on = color_latex_body(expr, options=opts_on)
+        self.assertNotIn(f"\\textcolor{{{color_c}}}{{c}}", res_on)
+        self.assertNotIn(f"\\textcolor{{{color_s}}}{{s}}", res_on)
+
 
 if __name__ == "__main__":
     unittest.main()

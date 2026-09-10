@@ -272,7 +272,7 @@ FONT_STYLE_MACROS = frozenset({
 })
 
 
-BARE_FUNCTIONS = frozenset({
+STANDARD_BARE_FUNCTIONS = frozenset({
     "sin",
     "cos",
     "tan",
@@ -313,6 +313,9 @@ BARE_FUNCTIONS = frozenset({
     "span",
     "diag",
     "sgn",
+})
+
+EXTENDED_BARE_FUNCTIONS = frozenset({
     "adj",
     "col",
     "row",
@@ -357,6 +360,15 @@ BARE_FUNCTIONS = frozenset({
     "pic",
     "cl",
 })
+
+ALL_BARE_FUNCTIONS = STANDARD_BARE_FUNCTIONS | EXTENDED_BARE_FUNCTIONS
+BARE_FUNCTIONS = ALL_BARE_FUNCTIONS
+
+
+def get_bare_functions(options: ColorMathOptions | None = None) -> frozenset[str]:
+    if options is not None and not options.extended_functions:
+        return STANDARD_BARE_FUNCTIONS
+    return ALL_BARE_FUNCTIONS
 
 
 MATH_ACCENTS = {
@@ -542,6 +554,7 @@ class ColorMathOptions:
     color_dimensionless: bool = False
     color_alignment: bool = True
     color_single_constants: bool = True
+    extended_functions: bool = True
 
     @classmethod
     def extended(cls) -> ColorMathOptions:
@@ -556,6 +569,7 @@ class ColorMathOptions:
             color_dimensionless=True,
             color_alignment=True,
             color_single_constants=True,
+            extended_functions=True,
         )
 
     @classmethod

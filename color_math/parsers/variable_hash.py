@@ -38,6 +38,7 @@ def collect_variable_spans(
     unit_spans: list[UnitSpan] | None = None,
     diff_spans: list[DifferentialSpan] | None = None,
     dim_spans: list[DimensionlessSpan] | None = None,
+    bare_functions: frozenset[str] = BARE_FUNCTIONS,
 ) -> list[ColorSpan]:
     """Assigns deterministic colors to distinct identifiers across an expression."""
     pal = palette or VARIABLE_HASH_PALETTE
@@ -111,7 +112,7 @@ def collect_variable_spans(
                         if body[target_start] == "{":
                             braced = read_braced(body, target_start)
                             if braced is not None:
-                                inner = body[braced[0]:braced[1]]
+                                inner = braced[0]
                                 base_m = re.search(r"[a-zA-Z]", inner)
                                 base_letter = base_m.group(0) if base_m else "x"
                                 color = hash_string_to_color(base_letter, pal)
@@ -173,7 +174,7 @@ def collect_variable_spans(
             lower_word = word.lower()
 
             # 1. Bare functions without parentheses: sin x, ln x, rank A, det M
-            if lower_word in BARE_FUNCTIONS:
+            if lower_word in bare_functions:
                 idx += len(word)
                 continue
 
