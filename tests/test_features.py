@@ -270,6 +270,18 @@ class FeatureTests(unittest.TestCase):
         color_a = hash_string_to_color("A")
         self.assertIn(f"\\textcolor{{{color_a}}}{{A}}", result)
 
+    def test_three_letter_functions(self) -> None:
+        opts = ColorMathOptions(variable_data_flow=True, enable_taxonomy=True)
+        result = color_latex_body("adj(A) + var(X)", options=opts)
+        self.assertIn("adj", result)
+        self.assertIn("var", result)
+        color_a = hash_string_to_color("a")
+        self.assertNotIn(f"\\textcolor{{{color_a}}}{{a}}d", result)
+        color_cap_a = hash_string_to_color("A")
+        color_cap_x = hash_string_to_color("X")
+        self.assertIn(f"\\textcolor{{{color_cap_a}}}{{A}}", result)
+        self.assertIn(f"\\textcolor{{{color_cap_x}}}{{X}}", result)
+
 
 if __name__ == "__main__":
     unittest.main()
