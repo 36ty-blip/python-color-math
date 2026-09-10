@@ -44,6 +44,21 @@ def try_converters(text: str, converters: tuple[Converter, ...]) -> str | None:
     return None
 
 
+def _has_semantic_options(options: ColorMathOptions | None) -> bool:
+    return bool(
+        options
+        and (
+            options.enable_taxonomy
+            or options.variable_data_flow
+            or options.rainbow_delimiters
+            or options.color_units
+            or options.color_differentials
+            or options.color_braket
+            or options.color_dimensionless
+        )
+    )
+
+
 def convert_math_block(
     block: str,
     palette: dict[str, str] | None = None,
@@ -64,6 +79,9 @@ def convert_math_block(
     prefix = match.group("prefix") or ""
     body = match.group("body")
     suffix = match.group("suffix")
+
+    if _has_semantic_options(options):
+        return f"{prefix}$${color_latex_body(body, palette, options)}$${suffix}"
 
     line_match = try_converters(block, LINE_CONVERTERS)
 
@@ -90,6 +108,9 @@ def convert_line(
     Checks specialized converters first,
     otherwise generic math coloring.
     """
+
+    if _has_semantic_options(options):
+        return color_generic_math_line(line, palette, options)
 
     converted = try_converters(line, LINE_CONVERTERS)
 

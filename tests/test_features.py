@@ -282,6 +282,23 @@ class FeatureTests(unittest.TestCase):
         self.assertIn(f"\\textcolor{{{color_cap_a}}}{{A}}", result)
         self.assertIn(f"\\textcolor{{{color_cap_x}}}{{X}}", result)
 
+    def test_permanent_bake_parity(self) -> None:
+        matrix_block = """$$
+A=
+\\begin{bmatrix}
+sin(x) & adj(A) & 3\\\\
+4 & 5 & 6\\\\
+7 & 8 & 9
+\\end{bmatrix}
+$$"""
+        opts = ColorMathOptions(variable_data_flow=True, enable_taxonomy=True)
+        baked = convert_text(matrix_block, options=opts)
+        self.assertIn(r"\textcolor{#7dcfff}{A}", baked)
+        self.assertIn(r"\textcolor{#7aa2f7}{sin}", baked)
+        self.assertIn(r"\textcolor{#7aa2f7}{adj}", baked)
+        self.assertIn(r"\begin{bmatrix}", baked)
+        self.assertNotIn(r"\textcolor{#bb9af7}{\begin{bmatrix}", baked)
+
 
 if __name__ == "__main__":
     unittest.main()
