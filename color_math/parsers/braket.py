@@ -14,8 +14,21 @@ class BraKetSpan:
     kind: str  # "bracket" | "ket" | "bra"
 
 
+BRAKET_RE = re.compile(
+    r"\\langle\s*([^<|>]+?)\s*\|\s*([^<|>]+?)(?:\s*\|\s*([^<|>]+?))?\s*\\rangle"
+)
+KET_MACRO_RE = re.compile(
+    r"(?:\||\\vert)\s*([^<|>]+?)\s*\\rangle|\\ket\s*\{([^}]+)\}"
+)
+BRA_MACRO_RE = re.compile(
+    r"\\langle\s*([^<|>]+?)\s*(?:\||\\vert)|\\bra\s*\{([^}]+)\}"
+)
+KET_DELIM_RE = re.compile(r"(?:\||\\vert)\s*([^<|>]+?)\s*\\rangle")
+BRA_DELIM_RE = re.compile(r"\\langle\s*([^<|>]+?)\s*(?:\||\\vert)")
+
+
 def find_braket_spans(body: str) -> list[BraKetSpan]:
-    """Scans LaTeX math body to identify Quantum Bra-Ket (Dirac) notation."""
+    """Scans LaTeX math body to identify Dirac bra-ket spans."""
     spans: list[BraKetSpan] = []
 
     def add_span(start: int, end: int, kind: str) -> None:
@@ -25,24 +38,15 @@ def find_braket_spans(body: str) -> list[BraKetSpan]:
             spans.append(BraKetSpan(start, end, kind))
 
     # 1. Bracket / Expectation value: \langle ... | ... \rangle
-    braket_re = re.compile(
-        r"\\langle\s*([^<|>]+?)\s*\|\s*([^<|>]+?)(?:\s*\|\s*([^<|>]+?))?\s*\\rangle"
-    )
-    for m in braket_re.finditer(body):
+    for m in BRAKET_RE.finditer(body):
         add_span(m.start(), m.end(), "bracket")
 
     # 2. Ket: | ... \rangle or \vert ... \rangle or \ket{...}
-    ket_re = re.compile(
-        r"(?:\||\\vert)\s*([^<|>]+?)\s*\\rangle|\\ket\s*\{([^}]+)\}"
-    )
-    for m in ket_re.finditer(body):
+    for m in KET_MACRO_RE.finditer(body):
         add_span(m.start(), m.end(), "ket")
 
     # 3. Bra: \langle ... | or \langle ... \vert or \bra{...}
-    bra_re = re.compile(
-        r"\\langle\s*([^<|>]+?)\s*(?:\||\\vert)|\\bra\s*\{([^}]+)\}"
-    )
-    for m in bra_re.finditer(body):
+    for m in BRA_MACRO_RE.finditer(body):
         add_span(m.start(), m.end(), "bra")
 
     return sorted(spans, key=lambda s: s.start)
@@ -59,10 +63,7 @@ def collect_braket_delimiter_spans(
     spans: list[ColorSpan] = []
 
     # 1. \langle ... | ... \rangle
-    braket_re = re.compile(
-        r"\\langle\s*([^<|>]+?)\s*\|\s*([^<|>]+?)(?:\s*\|\s*([^<|>]+?))?\s*\\rangle"
-    )
-    for m in braket_re.finditer(body):
+    for m in BRAKET_RE.finditer(body):
         full = m.group(0)
         langle_idx = m.start()
         langle_end = langle_idx + len(r"\langle")
@@ -81,8 +82,7 @@ def collect_braket_delimiter_spans(
             bar_search += 1
 
     # 2. Ket: | ... \rangle or \vert ... \rangle
-    ket_re = re.compile(r"(?:\||\\vert)\s*([^<|>]+?)\s*\\rangle")
-    for m in ket_re.finditer(body):
+    for m in KET_DELIM_RE.finditer(body):
         full = m.group(0)
         bar_idx = m.start()
         bar_end = bar_idx + (5 if full.startswith(r"\vert") else 1)
@@ -94,8 +94,7 @@ def collect_braket_delimiter_spans(
             spans.append(ColorSpan(rangle_idx, rangle_end, color, priority=25))
 
     # 3. Bra: \langle ... | or \langle ... \vert
-    bra_re = re.compile(r"\\langle\s*([^<|>]+?)\s*(?:\||\\vert)")
-    for m in bra_re.finditer(body):
+    for m in BRA_DELIM_RE.finditer(body):
         full = m.group(0)
         langle_idx = m.start()
         langle_end = langle_idx + 7

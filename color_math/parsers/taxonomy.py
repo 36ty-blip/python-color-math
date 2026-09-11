@@ -33,6 +33,11 @@ def _skip_comment(text: str, start: int) -> int:
     return min(idx + 1, len(text))
 
 
+INDEX_RE = re.compile(
+    r"(\\(?:sum|prod|coprod|bigcup|bigcap|lim|inf|sup))_\{?\s*([A-Za-z])\s*(?:=|\\to)"
+)
+
+
 def collect_taxonomy_spans(
     body: str,
     palette: dict[str, str] | None = None,
@@ -48,10 +53,7 @@ def collect_taxonomy_spans(
     spans: list[ColorSpan] = []
 
     # 1. Bound iteration indices in \sum, \prod, \lim
-    index_re = re.compile(
-        r"(\\(?:sum|prod|coprod|bigcup|bigcap|lim|inf|sup))_\{?\s*([A-Za-z])\s*(?:=|\\to)"
-    )
-    for m in index_re.finditer(body):
+    for m in INDEX_RE.finditer(body):
         var_name = m.group(2)
         var_start = m.start() + m.group(0).rfind(var_name)
         spans.append(ColorSpan(var_start, var_start + len(var_name), pal.get("chain", "#9ece6a"), priority=23))

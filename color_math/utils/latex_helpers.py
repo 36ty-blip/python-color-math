@@ -213,6 +213,8 @@ def read_color_command(text: str, start: int) -> tuple[str, int] | None:
 
 def contains_color_wrapper(text: str) -> bool:
     """Find active wrappers, ignoring TeX comments and verbatim payloads."""
+    if r"\textcolor" not in text and r"\color" not in text:
+        return False
     index = 0
     while index < len(text):
         if text[index] == "%":

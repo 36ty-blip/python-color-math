@@ -23,6 +23,15 @@ GREEK_LETTERS = (
 DIFF_VAR = r"(?:\\(?:" + GREEK_LETTERS + r")|[a-zA-Z])"
 
 
+DERIV_FRAC_RE = re.compile(
+    r"\\frac\s*\{\s*(?:d|\\partial|\\mathrm\{d\})(?:\^\{?\d+\}?)?\s*(?:" + DIFF_VAR + r")?\s*\}\s*\{\s*(?:d|\\partial|\\mathrm\{d\})\s*" + DIFF_VAR + r"(?:\^\{?\d+\}?)?(?:\s*(?:d|\\partial|\\mathrm\{d\})\s*" + DIFF_VAR + r")*\s*\}"
+)
+DIFF_RE = re.compile(
+    r"(?:^|[\s+\-=*({]|\[|\\,|\\:|\\;|\\quad|\\qquad|~)(\s*(?:d|\\partial|\\mathrm\{d\}|\\delta)\s*" + DIFF_VAR + r"(?![a-zA-Z0-9_({])(?:\^\{?\d+\}?)?)"
+)
+D_MATCH_RE = re.compile(r"(?:d|\\partial|\\mathrm\{d\}|\\delta)")
+
+
 def find_differential_spans(body: str) -> list[DifferentialSpan]:
     """Scans LaTeX math body to identify infinitesimal differentials and derivative operators."""
     spans: list[DifferentialSpan] = []
@@ -34,21 +43,15 @@ def find_differential_spans(body: str) -> list[DifferentialSpan]:
             spans.append(DifferentialSpan(start, end, text, kind))
 
     # 1. Derivative fractions: \frac{d}{dx}, \frac{df}{dx}, \frac{\partial \psi}{\partial t}, \frac{d^2 y}{dx^2}
-    deriv_frac_re = re.compile(
-        r"\\frac\s*\{\s*(?:d|\\partial|\\mathrm\{d\})(?:\^\{?\d+\}?)?\s*(?:" + DIFF_VAR + r")?\s*\}\s*\{\s*(?:d|\\partial|\\mathrm\{d\})\s*" + DIFF_VAR + r"(?:\^\{?\d+\}?)?(?:\s*(?:d|\\partial|\\mathrm\{d\})\s*" + DIFF_VAR + r")*\s*\}"
-    )
-    for m in deriv_frac_re.finditer(body):
+    for m in DERIV_FRAC_RE.finditer(body):
         add_span(m.start(), m.end(), m.group(0), "derivative_fraction")
 
     # 2. Infinitesimal differentials: dx, dt, dy, dz, dr, d\theta, d\phi, \partial x, \partial t
-    diff_re = re.compile(
-        r"(?:^|[\s+\-=*({]|\[|\\,|\\:|\\;|\\quad|\\qquad|~)(\s*(?:d|\\partial|\\mathrm\{d\}|\\delta)\s*" + DIFF_VAR + r"(?![a-zA-Z0-9_({])(?:\^\{?\d+\}?)?)"
-    )
-    for m in diff_re.finditer(body):
+    for m in DIFF_RE.finditer(body):
         full_match = m.group(0)
         diff_group = m.group(1)
         diff_start = m.start() + (len(full_match) - len(diff_group))
-        d_match = re.search(r"(?:d|\\partial|\\mathrm\{d\}|\\delta)", diff_group)
+        d_match = D_MATCH_RE.search(diff_group)
         if d_match:
             d_offset = d_match.start()
             actual_start = diff_start + d_offset

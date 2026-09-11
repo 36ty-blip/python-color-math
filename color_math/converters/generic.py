@@ -61,9 +61,13 @@ def color_latex_body(
 
     normalized = normalize_latex_braces(body)
 
-    unit_spans = find_unit_spans(normalized)
-    diff_spans = find_differential_spans(normalized)
-    dim_spans = find_dimensionless_spans(normalized)
+    need_units = opts.color_units or opts.enable_taxonomy or opts.variable_data_flow
+    need_diffs = opts.color_differentials or opts.enable_taxonomy or opts.variable_data_flow
+    need_dims = opts.color_dimensionless or opts.enable_taxonomy or opts.variable_data_flow
+
+    unit_spans = find_unit_spans(normalized) if need_units else []
+    diff_spans = find_differential_spans(normalized) if need_diffs else []
+    dim_spans = find_dimensionless_spans(normalized) if need_dims else []
 
     bare_functions = get_bare_functions(opts)
 

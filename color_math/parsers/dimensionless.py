@@ -32,6 +32,11 @@ COMMON_DIMENSIONLESS_NUMBERS = [
 ]
 
 
+NUM_LIST = "|".join(COMMON_DIMENSIONLESS_NUMBERS)
+TEXT_RE = re.compile(r"\\(?:text|mathrm)\s*\{\s*(" + NUM_LIST + r")\s*\}")
+BARE_RE = re.compile(r"(?:^|[^\\a-zA-Z])(" + NUM_LIST + r")(?![a-zA-Z])")
+
+
 def find_dimensionless_spans(body: str) -> list[DimensionlessSpan]:
     """Scans LaTeX math body to identify physical & engineering dimensionless numbers."""
     spans: list[DimensionlessSpan] = []
@@ -42,18 +47,12 @@ def find_dimensionless_spans(body: str) -> list[DimensionlessSpan]:
         if not any(start < s.end and end > s.start for s in spans):
             spans.append(DimensionlessSpan(start, end, text))
 
-    num_list = "|".join(COMMON_DIMENSIONLESS_NUMBERS)
-
     # 1. Text or mathrm wrapped: \text{Re}, \mathrm{Ma}, etc.
-    text_re = re.compile(r"\\(?:text|mathrm)\s*\{\s*(" + num_list + r")\s*\}")
-    for m in text_re.finditer(body):
+    for m in TEXT_RE.finditer(body):
         add_span(m.start(), m.end(), m.group(0))
 
     # 2. Contiguous bare symbols: Re, Ma, Pr, etc.
-    # Must NOT be preceded by backslash (e.g. \Re) or any letter.
-    # Must NOT be followed by any letter.
-    bare_re = re.compile(r"(?:^|[^\\a-zA-Z])(" + num_list + r")(?![a-zA-Z])")
-    for m in bare_re.finditer(body):
+    for m in BARE_RE.finditer(body):
         symbol = m.group(1)
         sym_start = m.start() + (len(m.group(0)) - len(symbol))
         sym_end = sym_start + len(symbol)

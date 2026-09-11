@@ -22,6 +22,32 @@ SAFE_MICRO_UNITS = r"m|s|g|mol|Hz|Pa|bar|rad|\\Omega|L|l"
 AMBIGUOUS_MICRO_UNITS = r"N|A|V|F|H|W|J|C"
 
 
+MICRO_TEXT_RE = re.compile(
+    r"\\mu\s*(?:\\(?:text|mathrm)\s*\{\s*([A-Za-z°℃%Ωμ/^0-9\s.\-]+?)\s*\})(?:\^\{?-?\d+\}?)?"
+)
+SAFE_MICRO_RE = re.compile(
+    r"\\mu\s*(" + SAFE_MICRO_UNITS + r")(?![A-Za-z0-9_])(?:\^\{?-?\d+\}?)?"
+)
+DEG_RE = re.compile(r"\^\s*\\circ\s*(?:\\(?:text|mathrm)\s*\{[A-Za-z]+\}|[A-Za-z]+)")
+NUM_UNIT_RE = re.compile(
+    r"(?:^|[^A-Za-z0-9_])(?:\d+(?:\.\d+)?|\.\d+)(?:\s*(?:\\times|\\cdot|·|\*)\s*10\^\{?[+-]?\d+\}?|\s*[eE][+-]?\d+)?(?:\s*|\,|\:|\;|\s*\\quad|\s*\\qquad|~)*"
+    r"("
+    r"\\(?:text|mathrm)\s*\{[^}]+\}(?:\^\{?-?\d+\}?)?"
+    r"|"
+    r"\\mu\s*(?:" + SAFE_MICRO_UNITS + r"|" + AMBIGUOUS_MICRO_UNITS + r")(?![A-Za-z0-9_])(?:\^\{?-?\d+\}?)?"
+    r"|"
+    r"(?:(?:" + PREFIXES + r")?(?:" + SI_UNITS + r"))(?:\/(?:(?:" + PREFIXES + r")?(?:" + SI_UNITS + r")))*(?:\^\{?-?\d+\}?)?(?![A-Za-z0-9_({])"
+    r")"
+)
+TEXT_UNIT_RE = re.compile(
+    r"\\(?:text|mathrm)\s*\{\s*([A-Za-z°℃%Ωμ/^0-9\s.\-]+?)\s*\}(?:\^\{?-?\d+\}?)?"
+)
+IS_UNIT_RE = re.compile(
+    r"^(?:(?:" + PREFIXES + r")?(?:" + SI_UNITS + r"))(?:\/(?:(?:" + PREFIXES + r")?(?:" + SI_UNITS + r")))*(?:\^\{?-?\d+\}?)?$",
+    re.IGNORECASE,
+)
+
+
 def find_unit_spans(body: str) -> list[UnitSpan]:
     """Scans LaTeX math body to identify physical unit spans."""
     spans: list[UnitSpan] = []
@@ -33,36 +59,19 @@ def find_unit_spans(body: str) -> list[UnitSpan]:
             spans.append(UnitSpan(start, end, text))
 
     # 1a. \mu\text{...} or \mu\mathrm{...}
-    micro_text_re = re.compile(
-        r"\\mu\s*(?:\\(?:text|mathrm)\s*\{\s*([A-Za-z°℃%Ωμ/^0-9\s.\-]+?)\s*\})(?:\^\{?-?\d+\}?)?"
-    )
-    for m in micro_text_re.finditer(body):
+    for m in MICRO_TEXT_RE.finditer(body):
         add_span(m.start(), m.end(), m.group(0))
 
     # 1b. Bare \mu with safe micro units: \mu m, \mu s, etc.
-    safe_micro_re = re.compile(
-        r"\\mu\s*(" + SAFE_MICRO_UNITS + r")(?![A-Za-z0-9_])(?:\^\{?-?\d+\}?)?"
-    )
-    for m in safe_micro_re.finditer(body):
+    for m in SAFE_MICRO_RE.finditer(body):
         add_span(m.start(), m.end(), m.group(0))
 
     # 2. Degree units: ^\circ C, ^\circ\text{C}, ^\circ F
-    deg_re = re.compile(r"\^\s*\\circ\s*(?:\\(?:text|mathrm)\s*\{[A-Za-z]+\}|[A-Za-z]+)")
-    for m in deg_re.finditer(body):
+    for m in DEG_RE.finditer(body):
         add_span(m.start(), m.end(), m.group(0))
 
     # 3. Units preceded by a number (Magnitude + Unit)
-    num_unit_pattern = (
-        r"(?:^|[^A-Za-z0-9_])(?:\d+(?:\.\d+)?|\.\d+)(?:\s*(?:\\times|\\cdot|·|\*)\s*10\^\{?[+-]?\d+\}?|\s*[eE][+-]?\d+)?(?:\s*|\,|\:|\;|\s*\\quad|\s*\\qquad|~)*"
-        r"("
-        r"\\(?:text|mathrm)\s*\{[^}]+\}(?:\^\{?-?\d+\}?)?"
-        r"|"
-        r"\\mu\s*(?:" + SAFE_MICRO_UNITS + r"|" + AMBIGUOUS_MICRO_UNITS + r")(?![A-Za-z0-9_])(?:\^\{?-?\d+\}?)?"
-        r"|"
-        r"(?:(?:" + PREFIXES + r")?(?:" + SI_UNITS + r"))(?:\/(?:(?:" + PREFIXES + r")?(?:" + SI_UNITS + r")))*(?:\^\{?-?\d+\}?)?(?![A-Za-z0-9_({])"
-        r")"
-    )
-    for m in re.finditer(num_unit_pattern, body):
+    for m in NUM_UNIT_RE.finditer(body):
         full_match = m.group(0)
         unit_part = m.group(1)
         unit_offset = full_match.rfind(unit_part)
@@ -71,16 +80,9 @@ def find_unit_spans(body: str) -> list[UnitSpan]:
         add_span(unit_start, unit_end, unit_part)
 
     # 4. Standalone Text / mathrm units with \text{...} or \mathrm{...}
-    text_unit_re = re.compile(
-        r"\\(?:text|mathrm)\s*\{\s*([A-Za-z°℃%Ωμ/^0-9\s.\-]+?)\s*\}(?:\^\{?-?\d+\}?)?"
-    )
-    is_unit_re = re.compile(
-        r"^(?:(?:" + PREFIXES + r")?(?:" + SI_UNITS + r"))(?:\/(?:(?:" + PREFIXES + r")?(?:" + SI_UNITS + r")))*(?:\^\{?-?\d+\}?)?$",
-        re.IGNORECASE,
-    )
-    for m in text_unit_re.finditer(body):
+    for m in TEXT_UNIT_RE.finditer(body):
         inner = m.group(1).strip()
-        if is_unit_re.match(inner):
+        if IS_UNIT_RE.match(inner):
             add_span(m.start(), m.end(), m.group(0))
 
     return sorted(spans, key=lambda s: s.start)

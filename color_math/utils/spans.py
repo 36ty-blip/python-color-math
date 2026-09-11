@@ -50,28 +50,39 @@ def apply_color_spans(source: str, spans: list[ColorSpan]) -> str:
     """Insert ``\\textcolor`` wrappers without changing the source itself."""
 
     selected = select_color_spans(source, spans)
+    if not selected:
+        return source
+
     openings: dict[int, list[ColorSpan]] = {}
     closings: dict[int, list[ColorSpan]] = {}
+    events: set[int] = set()
     for span in selected:
         openings.setdefault(span.start, []).append(span)
         closings.setdefault(span.end, []).append(span)
+        events.add(span.start)
+        events.add(span.end)
 
     pieces: list[str] = []
-    for index in range(len(source) + 1):
+    last_idx = 0
+    for idx in sorted(events):
+        if idx > last_idx:
+            pieces.append(source[last_idx:idx])
         # Close inner spans first, then open outer spans first.
         for _ in sorted(
-            closings.get(index, ()),
+            closings.get(idx, ()),
             key=lambda item: item.start,
             reverse=True,
         ):
             pieces.append("}")
         for span in sorted(
-            openings.get(index, ()),
+            openings.get(idx, ()),
             key=lambda item: item.end,
             reverse=True,
         ):
             pieces.append(rf"\textcolor{{{span.color}}}{{")
-        if index < len(source):
-            pieces.append(source[index])
+        last_idx = idx
+
+    if last_idx < len(source):
+        pieces.append(source[last_idx:])
 
     return "".join(pieces)
