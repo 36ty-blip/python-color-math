@@ -15,6 +15,7 @@ from ..parsers.latex_spans import (
 from ..parsers.scanner import collect_operator_spans
 from ..utils.latex_helpers import contains_color_wrapper
 from ..utils.spans import ColorSpan, apply_color_spans
+from ..undo import uncolor_text
 from .semantic import first_equality, parse_math_block, relation_spans, trim_range
 
 
@@ -221,7 +222,8 @@ def _rhs_spans(body: str, start: int, end: int | None = None) -> list[ColorSpan]
 
 def convert_derivative_line(source: str) -> str | None:
     """Color a derivative block by inserting wrappers into its exact source."""
-    block = parse_math_block(source)
+    clean_source = uncolor_text(source) if contains_color_wrapper(source) else source
+    block = parse_math_block(clean_source)
     if block is None:
         return None
 
@@ -229,8 +231,6 @@ def convert_derivative_line(source: str) -> str | None:
     prefix = read_operand(block.body, body_start)
     if prefix is None or not _is_derivative_prefix(prefix.text(block.body)):
         return None
-    if contains_color_wrapper(block.body):
-        return source
 
     equality = first_equality(block.body)
     if equality is None or equality[0] <= prefix.end:

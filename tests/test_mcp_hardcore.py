@@ -333,6 +333,28 @@ code block: \frac{df}{dx}
             for p in modified_paths:
                 self.assertNotIn(".obsidian", p)
 
+    # -------------------------------------------------------------
+    # 10. Half-Colored Math Expression Completion
+    # -------------------------------------------------------------
+    def test_half_colored_expression_completion(self) -> None:
+        """Verify that half-colored expressions get fully colored without skipping uncolored terms."""
+        # Partially colored expression with functions: f was uncolored, g was colored
+        partial_expr = r"f(x) + \textcolor{#bb9af7}{g(y)} = 0"
+        res = self._call("colorize_math_expression", {"expression": partial_expr, "theme": "nord"})
+        colorized = res.get("colorized", "")
+
+        # Uncolored function f must now be colored alongside g and relation =
+        self.assertIn(r"\textcolor", colorized)
+        self.assertNotIn(r"\textcolor{#bb9af7}{\textcolor", colorized)
+        self.assertRegex(colorized, r"\\textcolor\{#[0-9a-fA-F]+\}\{f\}")
+        self.assertRegex(colorized, r"\\textcolor\{#[0-9a-fA-F]+\}\{g\}")
+
+        # Partially colored derivative equation
+        partial_deriv = r"$$\frac{d}{dx}\textcolor{#7aa2f7}{f(x)} = f'(x)$$"
+        res_math = self._call("colorize_math_expression", {"expression": partial_deriv})
+        colorized_deriv = res_math.get("colorized", "")
+        self.assertRegex(colorized_deriv, r"\\textcolor\{#[0-9a-fA-F]+\}\{f'\}")
+
 
 if __name__ == "__main__":
     unittest.main()

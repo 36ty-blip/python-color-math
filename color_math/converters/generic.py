@@ -17,6 +17,7 @@ from ..parsers.taxonomy import collect_taxonomy_spans
 from ..parsers.variable_hash import collect_variable_spans
 from ..utils.latex_helpers import contains_color_wrapper, normalize_latex_braces
 from ..utils.spans import ColorSpan, apply_color_spans
+from ..undo import uncolor_fragment
 
 
 MATH_LINE_RE = re.compile(
@@ -53,13 +54,12 @@ def color_latex_body(
     options: ColorMathOptions | None = None,
 ) -> str:
     """Insert scoped colors while preserving every original source character."""
-    if contains_color_wrapper(body):
-        return body
+    clean_body = uncolor_fragment(body) if contains_color_wrapper(body) else body
 
     pal = palette or COLORS
     opts = options or ColorMathOptions()
 
-    normalized = normalize_latex_braces(body) if opts.normalize_braces else body
+    normalized = normalize_latex_braces(clean_body) if opts.normalize_braces else clean_body
 
     need_units = opts.color_units or opts.enable_taxonomy or opts.variable_data_flow
     need_diffs = opts.color_differentials or opts.enable_taxonomy or opts.variable_data_flow

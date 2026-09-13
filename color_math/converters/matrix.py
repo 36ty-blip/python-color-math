@@ -9,6 +9,7 @@ from ..parsers.latex_spans import OperandSpan, find_operand_spans, read_operand
 from ..parsers.scanner import collect_operator_spans, collect_structured_spans
 from ..utils.latex_helpers import contains_color_wrapper
 from ..utils.spans import ColorSpan, apply_color_spans
+from ..undo import uncolor_text
 from .semantic import first_equality, parse_math_block, relation_spans
 
 
@@ -104,11 +105,10 @@ def _operator_spans(body: str) -> list[ColorSpan]:
 
 def convert_matrix_block(source: str) -> str | None:
     """Color complete matrix/tensor operands without reconstructing LaTeX."""
-    block = parse_math_block(source)
+    clean_source = uncolor_text(source) if contains_color_wrapper(source) else source
+    block = parse_math_block(clean_source)
     if block is None or not _is_matrix_expression(block.body):
         return None
-    if contains_color_wrapper(block.body):
-        return source
 
     equality = first_equality(block.body)
     if equality is None:
