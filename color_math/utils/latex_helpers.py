@@ -163,14 +163,12 @@ def read_color_wrapper(text: str, start: int) -> tuple[str, int] | None:
     """
     Read a scoped color wrapper and return its unbraced value and end index.
 
-    Supports current ``\\textcolor{red}{x}`` output and legacy
-    ``\\color{red}{x}`` output. Command names are matched exactly, so macros
-    such as ``\\colorbox`` and ``\\colorful`` are left alone.
+    Supports \\textcolor, \\colorbox, and \\color (declaration and scoped).
     """
     command = next(
         (
             candidate
-            for candidate in (r"\textcolor", r"\color")
+            for candidate in (r"\textcolor", r"\colorbox", r"\color")
             if text.startswith(candidate, start)
             and (
                 start + len(candidate) == len(text)
@@ -187,6 +185,14 @@ def read_color_wrapper(text: str, start: int) -> tuple[str, int] | None:
     while index < len(text) and text[index].isspace():
         index += 1
 
+    # Handle optional model in brackets, e.g. \textcolor[HTML]{...}{...} or \color[rgb]{...}
+    if index < len(text) and text[index] == "[":
+        close_bracket = text.find("]", index)
+        if close_bracket != -1:
+            index = close_bracket + 1
+            while index < len(text) and text[index].isspace():
+                index += 1
+
     color_data = read_braced(text, index)
     if color_data is None:
         return None
@@ -195,6 +201,16 @@ def read_color_wrapper(text: str, start: int) -> tuple[str, int] | None:
 
     while index < len(text) and text[index].isspace():
         index += 1
+
+    # If command is \color, it may be a declaration (\color{red} x) or legacy scoped (\color{red}{x})
+    if command == r"\color":
+        if index < len(text) and text[index] == "{":
+            value_data = read_braced(text, index)
+            if value_data is not None:
+                value, end = value_data
+                return value[1:-1], end
+        # Standalone declaration: strip command and color specifier
+        return "", index
 
     value_data = read_braced(text, index)
     if value_data is None:
@@ -226,7 +242,7 @@ def read_color_command(text: str, start: int) -> tuple[str, int] | None:
 
 def contains_color_wrapper(text: str) -> bool:
     """Find active wrappers, ignoring TeX comments and verbatim payloads."""
-    if r"\textcolor" not in text and r"\color" not in text:
+    if r"\textcolor" not in text and r"\color" not in text and r"\colorbox" not in text:
         return False
     index = 0
     while index < len(text):

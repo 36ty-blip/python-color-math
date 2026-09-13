@@ -130,18 +130,28 @@ def convert_text(
 
     Handles:
       - single-line and multiline $$ ... $$ math blocks
+      - inline $ ... $ math expressions
       - normal text passthrough
     """
-
-    math_blocks = scan_markdown(text).math_blocks
-    if not math_blocks:
+    scan = scan_markdown(text)
+    all_spans = sorted(
+        [*scan.math_blocks, *scan.math_inlines],
+        key=lambda s: s.start,
+    )
+    if not all_spans:
         return text
 
     converted: list[str] = []
     index = 0
-    for span in math_blocks:
+    for span in all_spans:
         converted.append(text[index:span.start])
-        converted.append(convert_math_block(text[span.start:span.end], palette, options))
+        if span.kind == "math_inline":
+            raw = text[span.content_start:span.content_end]
+            converted.append(f"${color_latex_body(raw, palette, options)}$")
+        else:
+            converted.append(
+                convert_math_block(text[span.start:span.end], palette, options)
+            )
         index = span.end
     converted.append(text[index:])
     return "".join(converted)

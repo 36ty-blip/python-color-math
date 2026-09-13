@@ -24,8 +24,12 @@ def uncolor_fragment(text: str) -> str:
         if text[index] == "\\":
             wrapper = read_color_wrapper(text, index)
             if wrapper is not None:
-                value, index = wrapper
-                output.append(uncolor_fragment(value))
+                value, next_index = wrapper
+                if value:
+                    output.append(uncolor_fragment(value))
+                index = next_index
+                if not value and index < len(text) and text[index] == " ":
+                    index += 1
                 continue
 
             verb = read_verb_end(text, index)
@@ -48,14 +52,18 @@ def uncolor_fragment(text: str) -> str:
 
 
 def uncolor_text(text: str) -> str:
-    r"""Remove wrappers in display math; leave all other Markdown untouched."""
-    math_blocks = scan_markdown(text).math_blocks
-    if not math_blocks:
-        return text
+    r"""Remove wrappers in display and inline math; leave all other Markdown untouched."""
+    scan = scan_markdown(text)
+    all_spans = sorted(
+        [*scan.math_blocks, *scan.math_inlines],
+        key=lambda s: s.start,
+    )
+    if not all_spans:
+        return uncolor_fragment(text)
 
     output: list[str] = []
     index = 0
-    for span in math_blocks:
+    for span in all_spans:
         output.append(text[index:span.start])
         output.append(uncolor_fragment(text[span.start:span.end]))
         index = span.end

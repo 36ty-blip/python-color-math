@@ -355,6 +355,57 @@ code block: \frac{df}{dx}
         colorized_deriv = res_math.get("colorized", "")
         self.assertRegex(colorized_deriv, r"\\textcolor\{#[0-9a-fA-F]+\}\{f'\}")
 
+    # -------------------------------------------------------------
+    # 11. Inline Math & Advanced Undo Syntax Support
+    # -------------------------------------------------------------
+    def test_inline_math_and_advanced_undo(self) -> None:
+        """Verify inline math convert/undo and LaTeX color syntax variants."""
+        from color_math.converters.block import convert_text
+        from color_math.undo import uncolor_text, uncolor_fragment
+
+        # 1. Inline math conversion and roundtrip undo
+        doc = "Let $f(x) = x^2$ be a function."
+        colored = convert_text(doc)
+        self.assertIn(r"\textcolor", colored)
+        self.assertTrue(colored.startswith("Let $"))
+        self.assertEqual(uncolor_text(colored), doc)
+
+        # 2. Raw fragment uncoloring without delimiters
+        raw = r"\textcolor{#7aa2f7}{a}^2 + \textcolor{#bb9af7}{b}^2 = \textcolor{#f7768e}{c}^2"
+        self.assertEqual(uncolor_text(raw), "a^2 + b^2 = c^2")
+
+        # 3. Standalone declaration and optional color models
+        decl = r"$$\color{red} x + \color[rgb]{0,1,0} y$$"
+        self.assertEqual(uncolor_text(decl), "$$x + y$$")
+
+        # 4. Colorbox wrapper
+        box = r"$$\colorbox{yellow}{highlight}$$"
+        self.assertEqual(uncolor_text(box), "$$highlight$$")
+
+    # -------------------------------------------------------------
+    # 12. Piecewise Cases Environment with \ge and <
+    # -------------------------------------------------------------
+    def test_cases_piecewise_environment(self) -> None:
+        r"""Verify that \ge and < in piecewise cases environments are recognized without swallowing lines."""
+        from color_math.converters.block import convert_text
+
+        cases_doc = r"""$$
+f(x)=
+\begin{cases}
+x^{2}, & x\ge0\\
+-x, & x<0
+\end{cases}
+$$"""
+        colorized = convert_text(cases_doc)
+        # Verify \ge and < relations are colored
+        self.assertIn(r"\ge", colorized)
+        self.assertIn(r"<", colorized)
+        self.assertRegex(colorized, r"\\textcolor\{white\}\{\\ge\}")
+        self.assertRegex(colorized, r"\\textcolor\{white\}\{<\}")
+        # Verify second branch was not swallowed
+        self.assertIn("-", colorized)
+        self.assertIn(r"\end{cases}", colorized)
+
 
 if __name__ == "__main__":
     unittest.main()

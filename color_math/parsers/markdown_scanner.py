@@ -8,6 +8,7 @@ from dataclasses import dataclass
 FENCED_CODE = "fenced_code"
 CODE_SPAN = "code_span"
 MATH_BLOCK = "math_block"
+MATH_INLINE = "math_inline"
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,10 +24,11 @@ class MarkdownSpan:
 
 @dataclass(frozen=True, slots=True)
 class MarkdownScan:
-    """Protected code regions and editable ``$$...$$`` regions."""
+    """Protected code regions, editable $$...$$ regions, and $...$ inline regions."""
 
     protected: tuple[MarkdownSpan, ...]
     math_blocks: tuple[MarkdownSpan, ...]
+    math_inlines: tuple[MarkdownSpan, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -455,9 +457,54 @@ def _find_math_blocks(
     return tuple(spans)
 
 
+def _find_math_inlines(
+    text: str,
+    protected: tuple[MarkdownSpan, ...],
+) -> tuple[MarkdownSpan, ...]:
+    spans: list[MarkdownSpan] = []
+    for start, end in _visible_ranges(len(text), protected):
+        index = start
+        while index < end:
+            if text[index] == "$" and (index == 0 or text[index - 1] != "\\"):
+                if index + 1 < end and text[index + 1] == "$":
+                    index += 2
+                    continue
+                if index + 1 < end and text[index + 1] in " \t\r\n":
+                    index += 1
+                    continue
+                content_start = index + 1
+                closing = content_start
+                found = False
+                while closing < end:
+                    if text[closing] in "\r\n":
+                        break
+                    if text[closing] == "$" and text[closing - 1] != "\\":
+                        if text[closing - 1] not in " \t":
+                            found = True
+                            break
+                    closing += 1
+                if found:
+                    spans.append(
+                        MarkdownSpan(
+                            MATH_INLINE,
+                            start=index,
+                            content_start=content_start,
+                            content_end=closing,
+                            end=closing + 1,
+                        )
+                    )
+                    index = closing + 1
+                    continue
+            index += 1
+    return tuple(spans)
+
+
 def scan_markdown(text: str) -> MarkdownScan:
-    """Return exact protected and display-math offsets in ``text``."""
+    """Return exact protected, display-math, and inline-math offsets in ``text``."""
     fenced = _find_fenced_code(text)
     code_spans = _find_code_spans(text, fenced)
     protected = tuple(sorted((*fenced, *code_spans), key=lambda span: span.start))
-    return MarkdownScan(protected, _find_math_blocks(text, protected))
+    math_blocks = _find_math_blocks(text, protected)
+    all_protected = tuple(sorted((*protected, *math_blocks), key=lambda span: span.start))
+    math_inlines = _find_math_inlines(text, all_protected)
+    return MarkdownScan(protected, math_blocks, math_inlines)
