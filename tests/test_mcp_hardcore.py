@@ -406,6 +406,30 @@ $$"""
         self.assertIn("-", colorized)
         self.assertIn(r"\end{cases}", colorized)
 
+    # -------------------------------------------------------------
+    # 13. Adversarial MCP Error Resilience (Malformed Input, Binary Files)
+    # -------------------------------------------------------------
+    def test_adversarial_error_resilience(self) -> None:
+        """Verify that malformed inputs and binary files return structured error dicts without crashing."""
+        # 1. Malformed Jupyter notebook in colorize_text
+        bad_ipynb = "{\n  \"cells\": [ this is not valid json! \n"
+        res_color = self._call("colorize_text", {"text": bad_ipynb, "format_name": "jupyter"})
+        self.assertFalse(res_color.get("changed", True))
+        self.assertIn("error", res_color)
+
+        # 2. Malformed Jupyter notebook in uncolor_text
+        res_uncolor = self._call("uncolor_text", {"text": bad_ipynb, "format_name": "jupyter"})
+        self.assertFalse(res_uncolor.get("changed", True))
+        self.assertIn("error", res_uncolor)
+
+        # 3. Binary file in process_file
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bin_file = Path(tmpdir) / "corrupt.md"
+            bin_file.write_bytes(b"\xff\xfe\x00\x00\xaa\xbb\xcc")
+            res_proc = self._call("process_file", {"file_path": str(bin_file)})
+            self.assertFalse(res_proc.get("changed", True))
+            self.assertIn("error", res_proc)
+
 
 if __name__ == "__main__":
     unittest.main()

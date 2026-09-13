@@ -149,22 +149,30 @@ def create_mcp_server() -> MCPServer:
             normalize_braces=normalize_braces,
         )
 
-        clean_expr = expression.strip()
-        had_delimiters = clean_expr.startswith("$$") and clean_expr.endswith("$$")
-        block_text = clean_expr if had_delimiters else f"$${clean_expr}$$"
+        try:
+            clean_expr = expression.strip()
+            had_delimiters = clean_expr.startswith("$$") and clean_expr.endswith("$$")
+            block_text = clean_expr if had_delimiters else f"$${clean_expr}$$"
 
-        colored = convert_math_block(block_text, pal, opts)
-        if not had_delimiters and colored.startswith("$$") and colored.endswith("$$"):
-            colored_output = colored[2:-2]
-        else:
-            colored_output = colored
+            colored = convert_math_block(block_text, pal, opts)
+            if not had_delimiters and colored.startswith("$$") and colored.endswith("$$"):
+                colored_output = colored[2:-2]
+            else:
+                colored_output = colored
 
-        return {
-            "original": expression,
-            "colorized": colored_output,
-            "changed": colored_output != expression,
-            "theme": theme,
-        }
+            return {
+                "original": expression,
+                "colorized": colored_output,
+                "changed": colored_output != expression,
+                "theme": theme,
+            }
+        except Exception as err:
+            return {
+                "original": expression,
+                "error": str(err),
+                "changed": False,
+                "theme": theme,
+            }
 
     @server.tool(
         name="colorize_text",
@@ -199,16 +207,25 @@ def create_mcp_server() -> MCPServer:
             normalize_braces=normalize_braces,
         )
 
-        fmt = format_name if format_name in FORMATS else "markdown"
-        result = transform_document(text, fmt, undo=False, palette=pal, options=opts)
-        return {
-            "format": fmt,
-            "theme": theme,
-            "original_length": len(text),
-            "colorized_length": len(result),
-            "changed": result != text,
-            "result": result,
-        }
+        try:
+            fmt = format_name if format_name in FORMATS else "markdown"
+            result = transform_document(text, fmt, undo=False, palette=pal, options=opts)
+            return {
+                "format": fmt,
+                "theme": theme,
+                "original_length": len(text),
+                "colorized_length": len(result),
+                "changed": result != text,
+                "result": result,
+            }
+        except Exception as err:
+            return {
+                "format": format_name,
+                "theme": theme,
+                "error": str(err),
+                "changed": False,
+                "result": text,
+            }
 
     @server.tool(
         name="uncolor_text",
@@ -221,15 +238,23 @@ def create_mcp_server() -> MCPServer:
         text: str,
         format_name: str = "markdown",
     ) -> dict[str, Any]:
-        fmt = format_name if format_name in FORMATS else "markdown"
-        result = transform_document(text, fmt, undo=True)
-        return {
-            "format": fmt,
-            "original_length": len(text),
-            "cleaned_length": len(result),
-            "changed": result != text,
-            "result": result,
-        }
+        try:
+            fmt = format_name if format_name in FORMATS else "markdown"
+            result = transform_document(text, fmt, undo=True)
+            return {
+                "format": fmt,
+                "original_length": len(text),
+                "cleaned_length": len(result),
+                "changed": result != text,
+                "result": result,
+            }
+        except Exception as err:
+            return {
+                "format": format_name,
+                "error": str(err),
+                "changed": False,
+                "result": text,
+            }
 
     @server.tool(
         name="process_file",
@@ -271,47 +296,56 @@ def create_mcp_server() -> MCPServer:
             normalize_braces=normalize_braces,
         )
 
-        fmt = detect_format(path)
-        original_text, raw_bytes = read_utf8(path)
-        transformed = transform_document(
-            original_text, fmt, undo=undo, palette=pal, options=opts
-        )
-
-        changed = transformed != original_text
-        diff_output = ""
-        if changed:
-            diff_lines = list(
-                difflib.unified_diff(
-                    original_text.splitlines(keepends=True),
-                    transformed.splitlines(keepends=True),
-                    fromfile=str(path),
-                    tofile=str(path),
-                )
+        try:
+            fmt = detect_format(path)
+            original_text, raw_bytes = read_utf8(path)
+            transformed = transform_document(
+                original_text, fmt, undo=undo, palette=pal, options=opts
             )
-            diff_output = "".join(diff_lines[:100])  # limit diff length
 
-        written = False
-        if changed and in_place:
-            new_bytes = encode_utf8(transformed, raw_bytes)
-            written = replace_bytes(path, new_bytes, raw_bytes)
-
-        return {
-            "file_path": str(path),
-            "format": fmt,
-            "action": "undo" if undo else "colorize",
-            "changed": changed,
-            "written_to_disk": written,
-            "diff": diff_output if changed else None,
-            "message": (
-                f"File successfully updated on disk: {path.name}"
-                if written
-                else (
-                    f"Dry run complete: changes detected in {path.name}"
-                    if changed
-                    else f"No changes needed: {path.name} is already up to date."
+            changed = transformed != original_text
+            diff_output = ""
+            if changed:
+                diff_lines = list(
+                    difflib.unified_diff(
+                        original_text.splitlines(keepends=True),
+                        transformed.splitlines(keepends=True),
+                        fromfile=str(path),
+                        tofile=str(path),
+                    )
                 )
-            ),
-        }
+                diff_output = "".join(diff_lines[:100])  # limit diff length
+
+            written = False
+            if changed and in_place:
+                new_bytes = encode_utf8(transformed, raw_bytes)
+                written = replace_bytes(path, new_bytes, raw_bytes)
+
+            return {
+                "file_path": str(path),
+                "format": fmt,
+                "action": "undo" if undo else "colorize",
+                "changed": changed,
+                "written_to_disk": written,
+                "diff": diff_output if changed else None,
+                "message": (
+                    f"File successfully updated on disk: {path.name}"
+                    if written
+                    else (
+                        f"Dry run complete: changes detected in {path.name}"
+                        if changed
+                        else f"No changes needed: {path.name} is already up to date."
+                    )
+                ),
+            }
+        except Exception as err:
+            return {
+                "file_path": str(path),
+                "error": str(err),
+                "changed": False,
+                "written_to_disk": False,
+                "message": f"Error processing {path.name}: {err}",
+            }
 
     @server.tool(
         name="scan_vault",
