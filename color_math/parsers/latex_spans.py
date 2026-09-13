@@ -813,11 +813,7 @@ def read_operand(source: str, start: int, end: int | None = None) -> OperandSpan
                 if group_end is not None:
                     atom_end = group_end
             else:
-                next_op = read_operand(source, group_start, end)
-                if next_op is not None and next_op.kind != "opaque":
-                    atom_end = next_op.end
-                else:
-                    atom_end = scripted_end
+                atom_end = scripted_end
 
         kind = "opaque" if name in OPAQUE_MACROS else "function" if name in FUNCTION_MACROS else "operand"
         return OperandSpan(kind, start, _consume_postfix(source, atom_end, end))
@@ -854,23 +850,17 @@ def read_operand(source: str, start: int, end: int | None = None) -> OperandSpan
         while fn_end < end and source[fn_end] in ("'", "’"):
             fn_end += 1
         group_start = skip_ignorable(source, fn_end, end)
-        atom_end = fn_end
         if group_start < end and source[group_start] in "([":
             group_end = read_group_end(source, group_start, end)
             if group_end is not None:
-                atom_end = group_end
+                return OperandSpan("function", start, _consume_postfix(source, group_end, end))
         elif (
             source.startswith(r"\left", group_start)
             and _left_delimiter(source, group_start, end) in {"(", "[", "lparen", "lbrack"}
         ):
             group_end = read_left_right_end(source, group_start, end)
             if group_end is not None:
-                atom_end = group_end
-        else:
-            next_op = read_operand(source, group_start, end)
-            if next_op is not None and next_op.kind != "opaque":
-                atom_end = next_op.end
-        return OperandSpan("function", start, _consume_postfix(source, atom_end, end))
+                return OperandSpan("function", start, _consume_postfix(source, group_end, end))
 
     if source[start].isalpha():
         name_end = start + 1

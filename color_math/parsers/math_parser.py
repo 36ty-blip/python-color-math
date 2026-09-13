@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 
 from ..config import BARE_FUNCTIONS, MATH_FUNCTIONS
-from ..utils.latex_helpers import read_braced
+from ..utils.latex_helpers import read_braced, skip_environment_head
 from .latex_spans import read_operand
 from .markdown_scanner import scan_markdown
 
@@ -270,17 +270,10 @@ def _collect_semantic_spans(
                         index = opaque_end
                         continue
 
-                # Skip environment arguments: \begin{bmatrix}, \end{cases}
-                if name in (r"\begin", r"\end"):
-                    after_cmd = command_end
-                    while after_cmd < end and text[after_cmd].isspace():
-                        after_cmd += 1
-                    if after_cmd < end and text[after_cmd] == "{":
-                        group = read_braced(text, after_cmd)
-                        if group is not None and group[1] <= end:
-                            index = group[1]
-                            continue
-                    index = command_end
+                # Skip environment arguments: \begin{bmatrix}, \end{cases}, \begin{array}{cc|c}
+                env_end = skip_environment_head(text, name, command_end, end)
+                if env_end is not None:
+                    index = env_end
                     continue
 
                 # Custom operators: \operatorname{rank}(A)
@@ -419,7 +412,7 @@ def _collect_semantic_spans(
 
             if name_end < end and text[name_end] == "(":
                 errors.append(f"unclosed function call after {name!r}")
-            elif name.lower() in bare_functions:
+            elif name.lower() in bare_functions and not (name_end < end and text[name_end] == "{"):
                 spans.append(
                     SemanticSpan(
                         "function",

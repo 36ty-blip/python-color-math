@@ -3,7 +3,20 @@
 import re
 
 
+from typing import NamedTuple
+
+
 COMMAND_RE = re.compile(r"\\[A-Za-z]+|\\.")
+
+
+class BracedResult(NamedTuple):
+    """Result of reading a braced {...} group.
+
+    content: Exact braced substring (e.g. "{xyz}").
+    end: Index immediately following the closing brace.
+    """
+    content: str
+    end: int
 
 
 def read_comment_end(text: str, start: int) -> int:
@@ -37,15 +50,15 @@ def read_verb_end(text: str, start: int) -> tuple[int, bool] | None:
     )
 
 
-def read_braced(text: str, start: int) -> tuple[str, int] | None:
+def read_braced(text: str, start: int) -> BracedResult | None:
     """
     Read a balanced {...} group starting at index 'start'.
 
     Returns:
-        (captured_text, end_index)
+        BracedResult(content, end, start)
 
     Example:
-        "{abc}" -> ("{abc}", 5)
+        "{abc}" -> BracedResult("{abc}", 5, 0)
     """
     if start >= len(text) or text[start] != "{":
         return None
@@ -76,7 +89,7 @@ def read_braced(text: str, start: int) -> tuple[str, int] | None:
         elif char == "}":
             depth -= 1
             if depth == 0:
-                return text[start:index + 1], index + 1
+                return BracedResult(text[start:index + 1], index + 1)
 
         index += 1
 
@@ -408,4 +421,57 @@ def normalize_latex_braces(source: str) -> str:
         index += 1
 
     return "".join(result)
+
+
+def skip_environment_head(
+    text: str,
+    cmd_name: str,
+    cmd_end: int,
+    limit: int | None = None,
+) -> int | None:
+    """
+    Reads and skips environment declaration headers including arguments:
+    e.g., \\begin{matrix}, \\begin{array}{cc|c}, \\begin{alignedat}{2}, \\end{array}
+    """
+    if limit is None:
+        limit = len(text)
+    if cmd_name not in (r"\begin", r"\end"):
+        return None
+    after_cmd = cmd_end
+    while after_cmd < limit and text[after_cmd].isspace():
+        after_cmd += 1
+    if after_cmd < limit and text[after_cmd] == "{":
+        group = read_braced(text, after_cmd)
+        if group is not None and group[1] <= limit:
+            raw_name = group[0].strip()
+            env_name = (
+                raw_name[1:-1].strip()
+                if raw_name.startswith("{") and raw_name.endswith("}")
+                else raw_name
+            )
+            next_idx = group[1]
+            if cmd_name == r"\begin" and (
+                env_name in ("array", "tabular")
+                or env_name.startswith("alignat")
+                or env_name.startswith("alignedat")
+            ):
+                # Skip optional position argument [t], [b], [c]
+                scan_opt = next_idx
+                while scan_opt < limit and text[scan_opt].isspace():
+                    scan_opt += 1
+                if scan_opt < limit and text[scan_opt] == "[":
+                    bracket_end = text.find("]", scan_opt)
+                    if bracket_end != -1 and bracket_end < limit:
+                        next_idx = bracket_end + 1
+                # Skip column specification argument {cc|c} or {num}
+                scan_cols = next_idx
+                while scan_cols < limit and text[scan_cols].isspace():
+                    scan_cols += 1
+                if scan_cols < limit and text[scan_cols] == "{":
+                    col_braced = read_braced(text, scan_cols)
+                    if col_braced is not None and col_braced[1] <= limit:
+                        next_idx = col_braced[1]
+            return next_idx
+    return None
+
 

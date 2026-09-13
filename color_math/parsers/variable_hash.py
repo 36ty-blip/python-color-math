@@ -10,7 +10,7 @@ from ..config import (
     BARE_FUNCTIONS,
 )
 from ..utils.spans import ColorSpan
-from ..utils.latex_helpers import read_color_command, read_braced
+from ..utils.latex_helpers import read_color_command, read_braced, skip_environment_head
 from .units import find_unit_spans, UnitSpan
 from .differentials import find_differential_spans, DifferentialSpan
 from .dimensionless import find_dimensionless_spans, DimensionlessSpan
@@ -75,17 +75,10 @@ def collect_variable_spans(
                 cmd_name = m.group(1)
                 cmd_end = idx + len(cmd_name)
 
-                # Skip environment arguments: \begin{bmatrix}, \end{cases}
-                if cmd_name in (r"\begin", r"\end"):
-                    after_cmd = cmd_end
-                    while after_cmd < len(body) and body[after_cmd].isspace():
-                        after_cmd += 1
-                    if after_cmd < len(body) and body[after_cmd] == "{":
-                        braced = read_braced(body, after_cmd)
-                        if braced is not None:
-                            idx = braced[1]
-                            continue
-                    idx = cmd_end
+                # Skip environment arguments: \begin{bmatrix}, \end{cases}, \begin{array}{cc|c}
+                env_end = skip_environment_head(body, cmd_name, cmd_end)
+                if env_end is not None:
+                    idx = env_end
                     continue
 
                 # Skip custom operator name: \operatorname{rank}, \operatorname*{argmin}
@@ -98,7 +91,7 @@ def collect_variable_spans(
                     if after_cmd < len(body) and body[after_cmd] == "{":
                         braced = read_braced(body, after_cmd)
                         if braced is not None:
-                            idx = braced[1]
+                            idx = braced.end
                             continue
                     idx = cmd_end
                     continue
@@ -112,12 +105,12 @@ def collect_variable_spans(
                         if body[target_start] == "{":
                             braced = read_braced(body, target_start)
                             if braced is not None:
-                                inner = braced[0]
+                                inner = braced.content
                                 base_m = re.search(r"[a-zA-Z]", inner)
                                 base_letter = base_m.group(0) if base_m else "x"
                                 color = hash_string_to_color(base_letter, pal)
-                                spans.append(ColorSpan(idx, braced[1], color, priority=15))
-                                idx = braced[1]
+                                spans.append(ColorSpan(idx, braced.end, color, priority=15))
+                                idx = braced.end
                                 continue
                         else:
                             let_m = re.match(r"^[a-zA-Z]('*)*", body[target_start:])
@@ -139,8 +132,8 @@ def collect_variable_spans(
                         if body[target_start] == "{":
                             braced = read_braced(body, target_start)
                             if braced is not None:
-                                target_end = braced[1]
-                                bm = re.search(r"[a-zA-Z]", body[braced[0]:braced[1]])
+                                target_end = braced.end
+                                bm = re.search(r"[a-zA-Z]", braced.content)
                                 if bm:
                                     base_letter = bm.group(0)
                         else:

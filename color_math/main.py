@@ -298,6 +298,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Open the interactive graphical window with preview, colors, and settings.",
     )
     interactive_group.add_argument(
+        "--mcp",
+        action="store_true",
+        help="Launch the Model Context Protocol (MCP) server over stdio for AI assistants.",
+    )
+    interactive_group.add_argument(
         "--tutorial",
         action="store_true",
         help="Launch the interactive terminal tutorial with tips and examples.",
@@ -583,6 +588,16 @@ def _main_impl(argv: list[str] | None = None) -> int:
             palette=palette,
             options=options,
         )
+
+    # Launch Model Context Protocol (MCP) Server
+    if args.mcp:
+        try:
+            from .mcp_server import run_mcp_server
+        except ImportError as exc:
+            sys.stderr.write(f"Error starting Color Math MCP server:\n{exc}\n")
+            return 1
+        run_mcp_server(transport="stdio")
+        return 0
 
     # Generate shell autocompletion script
     if args.generate_completion:

@@ -15,11 +15,54 @@ class ColorSpan:
     priority: int = 0
 
 
+import re
+
+
 def _crosses(left: ColorSpan, right: ColorSpan) -> bool:
     return (
         left.start < right.start < left.end < right.end
         or right.start < left.start < right.end < left.end
     )
+
+
+def is_valid_tex_span(source: str, start: int, end: int) -> bool:
+    """Validate that a span does not cross alignment boundaries or fracture environments."""
+    content = source[start:end]
+    if content.strip() in ("&", r"\\"):
+        return False
+
+    depth = 0
+    env_depth = 0
+    i = 0
+    while i < len(content):
+        c = content[i]
+        if c == "%":
+            nl = content.find("\n", i)
+            i = len(content) if nl < 0 else nl + 1
+            continue
+        if c == "\\":
+            if content.startswith(r"\begin{", i):
+                env_depth += 1
+            elif content.startswith(r"\end{", i):
+                if env_depth == 0:
+                    return False
+                env_depth -= 1
+            elif env_depth == 0 and depth == 0:
+                if re.match(r"^\\\\(?:\[[^\]]*\])?(?:\s|\r|\n|$)", content[i:]):
+                    return False
+            i += 1
+            continue
+        if c in ("{", "["):
+            depth += 1
+        elif c in ("}", "]"):
+            depth = max(0, depth - 1)
+        elif c == "&" and env_depth == 0 and depth == 0:
+            return False
+        i += 1
+
+    if env_depth != 0:
+        return False
+    return True
 
 
 def select_color_spans(source: str, spans: list[ColorSpan]) -> list[ColorSpan]:
@@ -28,6 +71,8 @@ def select_color_spans(source: str, spans: list[ColorSpan]) -> list[ColorSpan]:
     candidates: dict[tuple[int, int], ColorSpan] = {}
     for span in spans:
         if not (0 <= span.start < span.end <= len(source)):
+            continue
+        if not is_valid_tex_span(source, span.start, span.end):
             continue
         key = (span.start, span.end)
         previous = candidates.get(key)

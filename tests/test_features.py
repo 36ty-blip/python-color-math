@@ -349,6 +349,14 @@ $$"""
         color_w = hash_string_to_color("w")
         self.assertNotIn(f"\\textcolor{{{color_w}}}{{w}}", res_on)
 
+    def test_array_environment_head_protection(self) -> None:
+        expr = r"\begin{array}{cc|c} 1 & 2 & 3 \\ 4 & 5 & 6 \end{array}"
+        opts = ColorMathOptions(variable_data_flow=True, enable_taxonomy=True)
+        res = color_latex_body(expr, options=opts)
+        # Verify {cc|c} is intact and not shredded into colored variables
+        self.assertIn(r"\begin{array}{cc|c}", res)
+        self.assertNotIn(r"\textcolor", res[:res.find("}") + 10])
+
 
 if __name__ == "__main__":
     unittest.main()

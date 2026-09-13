@@ -77,6 +77,8 @@ def _operand_color_spans(
     spans: list[ColorSpan] = []
     semantic_index = 0
     for operand in find_operand_spans(source, start, end):
+        if operand.kind in ("matrix", "environment"):
+            continue
         if operand.kind == "number":
             color = COLORS["orange"]
         else:

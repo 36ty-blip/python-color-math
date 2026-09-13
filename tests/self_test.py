@@ -29,8 +29,11 @@ from color_math.parsers.markdown_scanner import (
     scan_markdown,
 )
 from color_math.undo import uncolor_text
+from .latex_validator import validate_latex_output
+from .test_adversarial import AdversarialTests
 from .test_cli import CLITests
 from .test_features import FeatureTests
+from .test_fuzz import FuzzTests
 from .test_gui import GUITests
 
 
@@ -87,6 +90,8 @@ class FixtureTests(unittest.TestCase):
                 self.assertEqual(uncolor_text(actual), source)
             with self.subTest(fixture=name, property="idempotence"):
                 self.assertEqual(convert_text(actual), actual)
+            with self.subTest(fixture=name, property="latex syntax validation"):
+                validate_latex_output(actual)
 
     def test_generated_snapshots_match_expected(self) -> None:
         expected = fixture_paths(EXPECTED)

@@ -79,6 +79,8 @@ def _operand_color_spans(
     spans: list[ColorSpan] = []
     semantic_index = 0
     for operand in operands:
+        if operand.kind in ("matrix", "environment"):
+            continue
         value = re.sub(r"\s+", "", operand.text(body))
         if NUMBER_RE.fullmatch(value):
             name = "orange"

@@ -352,7 +352,6 @@ EXTENDED_BARE_FUNCTIONS = frozenset({
     "lg",
     "lb",
     "aut",
-    "end",
     "gal",
     "ann",
     "tor",
@@ -585,8 +584,9 @@ class ColorMathOptions:
     color_differentials: bool = False
     color_braket: bool = False
     color_dimensionless: bool = False
-    color_alignment: bool = True
-    color_single_constants: bool = True
+    color_alignment: bool = False
+    color_single_constants: bool = False
+    normalize_braces: bool = False
     extended_functions: bool = True
 
     @classmethod
@@ -602,6 +602,7 @@ class ColorMathOptions:
             color_dimensionless=True,
             color_alignment=True,
             color_single_constants=True,
+            normalize_braces=False,
             extended_functions=True,
         )
 
@@ -616,6 +617,10 @@ class ColorMathOptions:
             color_differentials=True,
             color_braket=True,
             color_dimensionless=True,
+            color_alignment=True,
+            color_single_constants=True,
+            normalize_braces=False,
+            extended_functions=True,
         )
 
 

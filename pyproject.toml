@@ -32,6 +32,9 @@ classifiers = [
 ]
 dependencies = []
 
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+
 [project.urls]
 Homepage = "https://github.com/36ty-blip/python-color-math"
 Documentation = "https://github.com/36ty-blip/python-color-math#readme"
@@ -42,6 +45,7 @@ Changelog = "https://github.com/36ty-blip/python-color-math/releases"
 [project.scripts]
 color-math = "color_math.main:main"
 python-color-math = "color_math.main:main"
+color-math-mcp = "color_math.mcp:main"
 
 [tool.setuptools]
 include-package-data = true

@@ -59,7 +59,7 @@ def color_latex_body(
     pal = palette or COLORS
     opts = options or ColorMathOptions()
 
-    normalized = normalize_latex_braces(body)
+    normalized = normalize_latex_braces(body) if opts.normalize_braces else body
 
     need_units = opts.color_units or opts.enable_taxonomy or opts.variable_data_flow
     need_diffs = opts.color_differentials or opts.enable_taxonomy or opts.variable_data_flow
@@ -69,11 +69,23 @@ def color_latex_body(
     diff_spans = find_differential_spans(normalized) if need_diffs else []
     dim_spans = find_dimensionless_spans(normalized) if need_dims else []
 
-    bare_functions = get_bare_functions(opts)
+    bare_functions = (
+        get_bare_functions(opts)
+        if (opts.enable_taxonomy or opts.variable_data_flow)
+        else frozenset()
+    )
+
+    scanner_spans = collect_scanner_spans(normalized)
+    protected = [*unit_spans, *diff_spans, *dim_spans]
+    if protected:
+        scanner_spans = [
+            s for s in scanner_spans
+            if not any(p.start <= s.start and s.end <= p.end for p in protected)
+        ]
 
     spans: list[ColorSpan] = [
         *collect_function_spans(normalized, pal, bare_functions),
-        *collect_scanner_spans(normalized),
+        *scanner_spans,
     ]
 
     if opts.color_units:

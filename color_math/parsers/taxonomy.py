@@ -12,7 +12,7 @@ from ..config import (
     FONT_STYLE_MACROS,
 )
 from ..utils.spans import ColorSpan
-from ..utils.latex_helpers import read_color_command, read_braced
+from ..utils.latex_helpers import read_color_command, read_braced, skip_environment_head
 from .units import find_unit_spans, UnitSpan
 from .differentials import find_differential_spans, DifferentialSpan
 from .dimensionless import find_dimensionless_spans, DimensionlessSpan
@@ -101,17 +101,10 @@ def collect_taxonomy_spans(
                 cmd_name = m.group(1)
                 cmd_end = idx + len(cmd_name)
 
-                # Skip environment arguments: \begin{bmatrix}, \end{cases}
-                if cmd_name in (r"\begin", r"\end"):
-                    after_cmd = cmd_end
-                    while after_cmd < len(body) and body[after_cmd].isspace():
-                        after_cmd += 1
-                    if after_cmd < len(body) and body[after_cmd] == "{":
-                        braced = read_braced(body, after_cmd)
-                        if braced is not None:
-                            idx = braced[1]
-                            continue
-                    idx = cmd_end
+                # Skip environment arguments: \begin{bmatrix}, \end{cases}, \begin{array}{cc|c}
+                env_end = skip_environment_head(body, cmd_name, cmd_end)
+                if env_end is not None:
+                    idx = env_end
                     continue
 
                 # Color custom operators as functions: \operatorname{rank}, \operatorname*{argmin}
