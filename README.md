@@ -175,7 +175,7 @@ Integrate `color-math` into your git workflow using [pre-commit](https://pre-com
 ```yaml
 repos:
   - repo: https://github.com/36ty-blip/color-math
-    rev: v0.2.1
+    rev: v0.2.2
     hooks:
       # Formatter: colorizes modified Markdown, LaTeX, and Jupyter files in-place
       - id: color-math
