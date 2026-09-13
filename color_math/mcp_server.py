@@ -457,3 +457,8 @@ def run_mcp_server(transport: str = "stdio", **kwargs: Any) -> None:
         server.run(transport="streamable-http", **kwargs)
     else:
         raise ValueError(f"Unsupported transport: {transport}. Expected 'stdio', 'sse', or 'streamable-http'.")
+
+
+if __name__ == "__main__":
+    run_mcp_server()
+
