@@ -357,7 +357,40 @@ $$"""
         self.assertIn(r"\begin{array}{cc|c}", res)
         self.assertNotIn(r"\textcolor", res[:res.find("}") + 10])
 
+    def test_angle_bracket_delimiters(self) -> None:
+        from color_math.parsers.delimiters import find_delimiter_pairs
+        # Bare \langle and \rangle
+        pairs = find_delimiter_pairs(r"\langle x, y \rangle")
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0].depth, 0)
+        self.assertEqual(pairs[0].open_item.delim_type, "angle")
+        self.assertEqual(pairs[0].close_item.delim_type, "angle")
+
+        # \left\langle and \right\rangle
+        pairs_lr = find_delimiter_pairs(r"\left\langle x, y \right\rangle")
+        self.assertEqual(len(pairs_lr), 1)
+        self.assertTrue(pairs_lr[0].open_item.is_left_right)
+        self.assertTrue(pairs_lr[0].close_item.is_left_right)
+
+        # User formulas with inner product and norms without cross-matching
+        opts = ColorMathOptions(
+            rainbow_delimiters=True,
+            color_braket=True,
+            variable_data_flow=True,
+        )
+        expr1 = r"|x| =\sqrt{\langle x,x\rangle},"
+        res1 = color_latex_body(expr1, options=opts)
+        self.assertIn(r"\textcolor{#e0af68}{\langle}", res1)
+        self.assertIn(r"\textcolor{#e0af68}{\rangle}", res1)
+        self.assertIn(r"|", res1)
+
+        expr2 = r"\cos\theta=\frac{\langle x,y\rangle}{|x||y|},"
+        res2 = color_latex_body(expr2, options=opts)
+        self.assertIn(r"\textcolor{#e0af68}{\langle}", res2)
+        self.assertIn(r"\textcolor{#e0af68}{\rangle}", res2)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

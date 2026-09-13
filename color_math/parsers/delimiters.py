@@ -99,10 +99,18 @@ def find_delimiter_pairs(text: str) -> list[DelimiterPair]:
 
         # Regular bare delimiters
         ch = text[idx]
-        if ch in ("(", "[") or text.startswith(r"\{", idx):
+        if ch in ("(", "[") or text.startswith(r"\{", idx) or text.startswith(r"\langle", idx):
+            is_angle = text.startswith(r"\langle", idx)
             is_brace = text.startswith(r"\{", idx)
-            delim_str = r"\{" if is_brace else ch
-            delim_end = idx + (2 if is_brace else 1)
+            if is_angle:
+                delim_str = r"\langle"
+                delim_end = idx + 7
+            elif is_brace:
+                delim_str = r"\{"
+                delim_end = idx + 2
+            else:
+                delim_str = ch
+                delim_end = idx + 1
             dtype = get_delimiter_type(delim_str)
             depth = len(stack)
             item = DelimiterItem(dtype, idx, delim_end, is_left_right=False)
@@ -110,10 +118,18 @@ def find_delimiter_pairs(text: str) -> list[DelimiterPair]:
             idx = delim_end
             continue
 
-        if ch in (")", "]") or text.startswith(r"\}", idx):
+        if ch in (")", "]") or text.startswith(r"\}", idx) or text.startswith(r"\rangle", idx):
+            is_angle = text.startswith(r"\rangle", idx)
             is_brace = text.startswith(r"\}", idx)
-            delim_str = r"\}" if is_brace else ch
-            delim_end = idx + (2 if is_brace else 1)
+            if is_angle:
+                delim_str = r"\rangle"
+                delim_end = idx + 7
+            elif is_brace:
+                delim_str = r"\}"
+                delim_end = idx + 2
+            else:
+                delim_str = ch
+                delim_end = idx + 1
             dtype = get_delimiter_type(delim_str)
 
             match_idx = -1

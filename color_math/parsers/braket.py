@@ -15,16 +15,17 @@ class BraKetSpan:
 
 
 BRAKET_RE = re.compile(
-    r"\\langle\s*([^<|>]+?)\s*\|\s*([^<|>]+?)(?:\s*\|\s*([^<|>]+?))?\s*\\rangle"
+    r"\\langle\s*((?:(?!\\langle|\\rangle)[^|<>=\n\r])+?)\s*\|\s*((?:(?!\\langle|\\rangle)[^|<>=\n\r])+?)(?:\s*\|\s*((?:(?!\\langle|\\rangle)[^|<>=\n\r])+?))?\s*\\rangle"
 )
 KET_MACRO_RE = re.compile(
-    r"(?:\||\\vert)\s*([^<|>]+?)\s*\\rangle|\\ket\s*\{([^}]+)\}"
+    r"(?:\||\\vert)\s*((?:(?!\\langle|\\rangle)[^|<>=\n\r])+?)\s*\\rangle|\\ket\s*\{([^}]+)\}"
 )
 BRA_MACRO_RE = re.compile(
-    r"\\langle\s*([^<|>]+?)\s*(?:\||\\vert)|\\bra\s*\{([^}]+)\}"
+    r"\\langle\s*((?:(?!\\langle|\\rangle)[^|<>=\n\r])+?)\s*(?:\||\\vert)|\\bra\s*\{([^}]+)\}"
 )
-KET_DELIM_RE = re.compile(r"(?:\||\\vert)\s*([^<|>]+?)\s*\\rangle")
-BRA_DELIM_RE = re.compile(r"\\langle\s*([^<|>]+?)\s*(?:\||\\vert)")
+KET_DELIM_RE = re.compile(r"(?:\||\\vert)\s*((?:(?!\\langle|\\rangle)[^|<>=\n\r])+?)\s*\\rangle")
+BRA_DELIM_RE = re.compile(r"\\langle\s*((?:(?!\\langle|\\rangle)[^|<>=\n\r])+?)\s*(?:\||\\vert)")
+INNER_PRODUCT_RE = re.compile(r"\\langle\s*((?:(?!\\langle|\\rangle)[^|<>=\n\r])+?)\s*\\rangle")
 
 
 def find_braket_spans(body: str) -> list[BraKetSpan]:
@@ -49,7 +50,25 @@ def find_braket_spans(body: str) -> list[BraKetSpan]:
     for m in BRA_MACRO_RE.finditer(body):
         add_span(m.start(), m.end(), "bra")
 
+    # 4. Standard inner product / expectation value: \langle ... \rangle
+    for m in INNER_PRODUCT_RE.finditer(body):
+        add_span(m.start(), m.end(), "bracket")
+
     return sorted(spans, key=lambda s: s.start)
+
+
+SIZED_PREFIXES = (
+    r"\left", r"\right",
+    r"\bigl", r"\bigr",
+    r"\Bigl", r"\Bigr",
+    r"\biggl", r"\biggr",
+    r"\Biggl", r"\Biggr",
+)
+
+
+def has_sized_prefix(body: str, idx: int) -> bool:
+    before = body[:idx].rstrip()
+    return any(before.endswith(p) for p in SIZED_PREFIXES)
 
 
 def collect_braket_delimiter_spans(
@@ -70,8 +89,10 @@ def collect_braket_delimiter_spans(
         rangle_idx = m.start() + full.rfind(r"\rangle")
         rangle_end = rangle_idx + len(r"\rangle")
 
-        spans.append(ColorSpan(langle_idx, langle_end, color, priority=25))
-        spans.append(ColorSpan(rangle_idx, rangle_end, color, priority=25))
+        if not has_sized_prefix(body, langle_idx):
+            spans.append(ColorSpan(langle_idx, langle_end, color, priority=25))
+        if not has_sized_prefix(body, rangle_idx):
+            spans.append(ColorSpan(rangle_idx, rangle_end, color, priority=25))
 
         bar_search = m.start()
         while True:
@@ -89,7 +110,7 @@ def collect_braket_delimiter_spans(
         rangle_idx = m.start() + full.rfind(r"\rangle")
         rangle_end = rangle_idx + 7
 
-        if not any(s.start == bar_idx for s in spans):
+        if not has_sized_prefix(body, rangle_idx) and not any(s.start == bar_idx for s in spans):
             spans.append(ColorSpan(bar_idx, bar_end, color, priority=25))
             spans.append(ColorSpan(rangle_idx, rangle_end, color, priority=25))
 
@@ -101,8 +122,21 @@ def collect_braket_delimiter_spans(
         bar_idx = m.start() + max(full.rfind("|"), full.rfind(r"\vert"))
         bar_end = bar_idx + (5 if full.endswith(r"\vert") else 1)
 
-        if not any(s.start == langle_idx for s in spans):
+        if not has_sized_prefix(body, langle_idx) and not any(s.start == langle_idx for s in spans):
             spans.append(ColorSpan(langle_idx, langle_end, color, priority=25))
             spans.append(ColorSpan(bar_idx, bar_end, color, priority=25))
+
+    # 4. Standard inner product / expectation value: \langle ... \rangle
+    for m in INNER_PRODUCT_RE.finditer(body):
+        full = m.group(0)
+        langle_idx = m.start()
+        langle_end = langle_idx + len(r"\langle")
+        rangle_idx = m.start() + full.rfind(r"\rangle")
+        rangle_end = rangle_idx + len(r"\rangle")
+
+        if not has_sized_prefix(body, langle_idx) and not has_sized_prefix(body, rangle_idx):
+            if not any(s.start == langle_idx for s in spans):
+                spans.append(ColorSpan(langle_idx, langle_end, color, priority=25))
+                spans.append(ColorSpan(rangle_idx, rangle_end, color, priority=25))
 
     return sorted(spans, key=lambda s: s.start)
