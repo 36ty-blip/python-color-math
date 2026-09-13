@@ -374,8 +374,8 @@ code block: \frac{df}{dx}
         raw = r"\textcolor{#7aa2f7}{a}^2 + \textcolor{#bb9af7}{b}^2 = \textcolor{#f7768e}{c}^2"
         self.assertEqual(uncolor_text(raw), "a^2 + b^2 = c^2")
 
-        # 3. Standalone declaration and optional color models
-        decl = r"$$\color{red} x + \color[rgb]{0,1,0} y$$"
+        # 3. Standalone color declaration
+        decl = r"$$\color{red} x + \color{blue} y$$"
         self.assertEqual(uncolor_text(decl), "$$x + y$$")
 
         # 4. Colorbox wrapper

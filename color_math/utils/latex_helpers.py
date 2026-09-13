@@ -185,13 +185,10 @@ def read_color_wrapper(text: str, start: int) -> tuple[str, int] | None:
     while index < len(text) and text[index].isspace():
         index += 1
 
-    # Handle optional model in brackets, e.g. \textcolor[HTML]{...}{...} or \color[rgb]{...}
+    # Explicit custom color models in brackets (e.g. \textcolor[RGB]{...})
+    # are user-defined and must stay untouched/opaque.
     if index < len(text) and text[index] == "[":
-        close_bracket = text.find("]", index)
-        if close_bracket != -1:
-            index = close_bracket + 1
-            while index < len(text) and text[index].isspace():
-                index += 1
+        return None
 
     color_data = read_braced(text, index)
     if color_data is None:
