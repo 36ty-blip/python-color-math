@@ -71,6 +71,7 @@ def run_tutorial(input_fn: Callable[[], str] = input) -> int:
     print(
         "Python Color Math adds semantic colors to your LaTeX equations without\n"
         "modifying the rest of your document or requiring external CAS tools.\n"
+        "It supports both display blocks ($$...$$) and inline math ($...$)!\n"
     )
     print(f"  {BOLD}Original LaTeX:{RESET}")
     print(f"    $$ \\frac{{d}}{{dx}} f(g(x)) = f'(g(x)) \\cdot g'(x) $$")
@@ -85,7 +86,8 @@ def run_tutorial(input_fn: Callable[[], str] = input) -> int:
         "🔍 Why this design matters:\n"
         "1. Standard LaTeX: It inserts standard \\textcolor{...}{...} wrappers.\n"
         "2. Safe: Fenced code, inline code, TeX comments, and prose are never touched.\n"
-        "3. Universal: Renders natively in Obsidian, KaTeX, Typora, Jupyter, & Anki."
+        "3. Piecewise & Advanced: Full support for \\begin{cases}, matrices, & derivatives.\n"
+        "4. Universal: Renders natively in Obsidian, KaTeX, Typora, Jupyter, & Anki."
     )
     if not _prompt_step(deep_1, input_fn):
         return 0
@@ -106,6 +108,7 @@ def run_tutorial(input_fn: Callable[[], str] = input) -> int:
     print(f"     {DIM}(Opens the graphical pop-up window with live preview, color pickers, and settings! You can also use {FLAG}--gui{DIM}){RESET}")
     print(f"\n  {CYAN}4. Direct expression mode (No file needed):{RESET}")
     print(f"     {CMD}color-math{RESET} {ARG}\"$$\\frac{{d}}{{dx}} x^2 = 2x$$\"{RESET}")
+    print(f"     {DIM}(Also handles piecewise cases: \\begin{{cases}} x^2, & x \\ge 0 \\end{{cases}}){RESET}")
     print(f"\n  {DIM}💡 Tip: Both '{CMD}color-math{RESET}{DIM}' and '{CMD}python-color-math{RESET}{DIM}' commands work identically!{RESET}")
 
     deep_2 = (
@@ -158,13 +161,18 @@ def run_tutorial(input_fn: Callable[[], str] = input) -> int:
     print(f"\n  {CYAN}3. Feature presets (all vs minimal):{RESET}")
     print(f"     {CMD}color-math{RESET} {ARG}note.md{RESET} {FLAG}--preset minimal -w{RESET}")
     print(f"     {DIM}(Default is 'all'; use 'minimal' for lightweight core coloring){RESET}")
+    print(f"\n  {MAGENTA}4. AI Assistant Model Context Protocol (MCP) Server:{RESET}")
+    print(f"     {CMD}color-math-mcp{RESET}  {DIM}(or {CMD}color-math{RESET} {FLAG}--mcp{DIM}){RESET}")
+    print(f"     {DIM}(Enables Claude Desktop, Cursor, & Antigravity to format notes autonomously!){RESET}")
 
     deep_4 = (
-        "🔍 Supported File Formats:\n"
-        "- Markdown notes (.md, .qmd)\n"
-        "- Jupyter notebooks (.ipynb)\n"
-        "- Native LaTeX documents (.tex, .latex)\n"
-        f"- Anki exports (.tsv, .txt) via '{FLAG}--format anki{RESET}'"
+        "🔍 Formats & AI MCP Integration:\n"
+        "- Markdown notes (.md, .qmd), Jupyter (.ipynb), TeX (.tex), Anki (.tsv)\n"
+        "- Connect to Claude Desktop, Cursor, or Antigravity via stdio JSON-RPC:\n"
+        f"    Install extra: pip install \"python-color-math[mcp]\"\n"
+        f"    Command: {CMD}color-math-mcp{RESET} (or {CMD}color-math{RESET} {FLAG}--mcp{RESET})\n"
+        "- Exposes 6 tools: colorize_math_expression, colorize_text, uncolor_text,\n"
+        "  process_file, scan_vault, and list_themes_and_config."
     )
     if not _prompt_step(deep_4, input_fn):
         return 0
@@ -179,5 +187,6 @@ def run_tutorial(input_fn: Callable[[], str] = input) -> int:
     print(f"  {BOLD}{CYAN}Remove colors:{RESET}   {CMD}color-math{RESET} {ARG}note.md{RESET} {FLAG}--undo -w{RESET}")
     print(f"  {BOLD}{CYAN}Reset palette:{RESET}   {CMD}color-math{RESET} {FLAG}--reset-colors{RESET}")
     print(f"  {BOLD}{CYAN}Check / Linter:{RESET}  {CMD}color-math{RESET} {ARG}notes/{RESET} {FLAG}-r --check{RESET}")
+    print(f"  {BOLD}{CYAN}AI MCP Server:{RESET}   {CMD}color-math-mcp{RESET}  {DIM}(or {FLAG}--mcp{DIM}){RESET}")
     print(f"\n{DIM}Run '{CMD}color-math{RESET} {FLAG}--help{RESET}{DIM}' anytime for full documentation.{RESET}\n")
     return 0
