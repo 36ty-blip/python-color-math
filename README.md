@@ -26,20 +26,23 @@ $$ \frac{d}{dx}\textcolor{#7aa2f7}{f(g(y))} \textcolor{white}{=} \textcolor{#bb9
 
 ```bash
 pip install python-color-math
+
+# Or with native AI Model Context Protocol (MCP) server support:
+pip install "python-color-math[mcp]"
 ```
 
-*(Or locally from cloned source: `pip install -e .`)*
+*(Or locally from cloned source: `pip install -e .` or `pip install -e ".[mcp]"`)*
 
 > [!TIP]
 > **Commands & PATH**:
-> - Registers both the short **`color-math`** and full **`python-color-math`** commands.
+> - Registers **`color-math`**, **`python-color-math`**, and the dedicated MCP server binary **`color-math-mcp`**.
 > - If Python's `Scripts/` folder is not on your `PATH`, run directly via Python without touching environment variables:
->   `python -m color_math [options]` *(or `python -m python_color_math`)*.
+>   `python -m color_math [options]` *(or `python -m color_math.mcp`)*.
 > - *Linux users*: Python's standard GUI library is available via `sudo apt install python3-tk`.
 
 ---
 
-## ⚡ Three Ways to Use
+## ⚡ Four Ways to Use
 
 ### 1. 🎓 Interactive Terminal Tutorial
 New to Color Math? Take the 2-minute paced CLI tour with live examples:
@@ -80,6 +83,15 @@ cat note.md | color-math -
 color-math note.md --diff
 ```
 
+### 4. 🤖 AI Agent Model Context Protocol (MCP)
+Empower local AI assistants (Claude Desktop, Cursor, Antigravity) to semantically format and inspect LaTeX equations:
+```bash
+# Run stdio MCP server directly:
+color-math-mcp
+# or:
+color-math --mcp
+```
+
 ---
 
 ## 📋 Cheat Sheet (Command Reference)
@@ -98,6 +110,7 @@ color-math note.md --diff
 | **Curated Themes** | `color-math note.md --theme catppuccin -w` | Select `default`, `catppuccin`, `nord`, or `light` |
 | **Feature Preset** | `color-math note.md --preset minimal -w` | Presets: `all` (default), `minimal` |
 | **Custom Colors** | `color-math note.md -c unit=#73daca -w` | Override any of 12 individual color roles |
+| **AI MCP Server** | `color-math-mcp` *(or `--mcp`)* | Launch Model Context Protocol server over stdio |
 | **Reset Palette** | `color-math --reset-colors` | Restore factory Tokyo Night palette |
 | **Inspect Colors** | `color-math --show-colors` | Display palette, descriptions, & terminal swatches |
 | **Undo / Strip** | `color-math note.md --undo -w` | Strip color wrappers back to plain LaTeX |
@@ -109,6 +122,9 @@ color-math note.md --diff
 
 Control recognition features with `--preset {all,minimal}` (default: `all`) or individual flags:
 
+- **Piecewise Environments (`\begin{cases}`)**: Full structural recognition of cases with multi-branch alignment (`&`), inequalities, and relations (`\ge`, `\le`, `\ne`, `<`, `>`).
+- **Inline & Display Math**: Accurately colors both display blocks (`$$...$$`) and inline expressions (`$...$`) while strictly protecting code fences and raw backticks.
+- **Half-Colored Auto-Completion**: Partially colored equations are automatically cleaned and re-colorized end-to-end rather than skipped.
 - **Calculus Differentials (`--differentials`)**: Disambiguates `dx`, `dt`, `d\theta`, and derivatives (`\frac{d}{dx}`, `\frac{\partial \psi}{\partial t}`) while leaving standalone distance variables `$d$` untouched.
 - **Physical Units (`--units`)**: Recognizes metric prefixes and unit compounds (`\mu m`, `m/s`, `kg`, `nm`).
 - **Rainbow Delimiters (`--rainbow-delimiters`)**: Recursively colors nested brackets `()`, `[]`, `{}` by depth to eliminate delimiter blindness.
@@ -165,6 +181,75 @@ color-math --generate-completion powershell | Out-String | Invoke-Expression
 # Or persist to your $PROFILE:
 Add-Content $PROFILE "`ncolor-math --generate-completion powershell | Out-String | Invoke-Expression"
 ```
+
+---
+
+## 🤖 Model Context Protocol (MCP) Server
+
+`python-color-math` includes a native Model Context Protocol (MCP) server that empowers AI assistants (**Claude Desktop**, **Cursor**, **Antigravity**, and any MCP client) to format, inspect, colorize, and uncolor LaTeX documents.
+
+### Install MCP Extra
+```bash
+pip install "python-color-math[mcp]"
+```
+
+### Direct Execution
+```bash
+# Default stdio transport
+color-math-mcp
+
+# Or via the main CLI / module:
+color-math --mcp
+python -m color_math.mcp
+```
+
+### Client Configuration
+
+Add to your assistant's MCP configuration:
+
+#### Claude Desktop (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "color-math": {
+      "command": "color-math-mcp"
+    }
+  }
+}
+```
+
+#### Cursor (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "color-math": {
+      "command": "color-math-mcp"
+    }
+  }
+}
+```
+
+#### Antigravity / Gemini CLI (`mcp_config.json`)
+```json
+{
+  "mcpServers": {
+    "python-color-math": {
+      "command": "python",
+      "args": ["-m", "color_math.mcp"]
+    }
+  }
+}
+```
+
+### Available MCP Tools
+| Tool | Description |
+| :--- | :--- |
+| `colorize_math_expression` | Colorizes an individual LaTeX string (e.g. `\frac{d}{dx}f(x) = f'(x)`). |
+| `colorize_text` | Parses and colorizes all equations (`$...$` and `$$...$$`) inside a Markdown, LaTeX, or Jupyter document. |
+| `uncolor_text` | Losslessly removes color tags, restoring clean plain LaTeX. |
+| `process_file` | Colorizes or uncolors files on disk in-place (`in_place=True`) or performs a safe dry-run returning a diff. |
+| `scan_vault` | Recursively scans an entire folder/vault to report math blocks and batch-colorize/uncolor notes. |
+| `list_themes_and_config` | Discovers available themes (Tokyo Night, Catppuccin, Nord, Light) and semantic color mappings. |
 
 ---
 
