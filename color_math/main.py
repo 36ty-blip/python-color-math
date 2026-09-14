@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import difflib
 import fnmatch
 import json
 import os
@@ -26,13 +25,11 @@ from .config import (
     reset_config_file,
     save_default_config,
 )
-from .completions import SHELLS, get_completion_script
+from .completions import SHELLS
 from .io import encode_utf8, read_utf8, replace_bytes
 from .parsers.math_parser import describe_math_blocks
-from .self_test import run_self_test
-from .tutorial import run_tutorial
 
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 SUPPORTED_EXTENSIONS = {".md", ".markdown", ".qmd", ".ipynb", ".tex", ".latex"}
 DEFAULT_EXCLUDES = {
     ".git",
@@ -372,6 +369,8 @@ def print_color_table(palette: dict[str, str], colorize: bool | None = None) -> 
 
 def generate_diff(original: str, converted: str, filename: str, colorize: bool | None = None) -> str:
     """Generate a unified diff representation, optionally colorized with ANSI codes."""
+    import difflib
+
     if colorize is None:
         colorize = should_color(sys.stdout)
 
@@ -518,8 +517,10 @@ def _main_impl(argv: list[str] | None = None) -> int:
     if args.update_generated and not args.self_test:
         parser.error("--update-generated requires --self-test")
     if args.self_test:
+        from .self_test import run_self_test
         return run_self_test(update_generated=args.update_generated)
     if args.tutorial:
+        from .tutorial import run_tutorial
         return run_tutorial()
 
     # 2. Config & Palette Reset / Inspection
@@ -601,6 +602,7 @@ def _main_impl(argv: list[str] | None = None) -> int:
 
     # Generate shell autocompletion script
     if args.generate_completion:
+        from .completions import get_completion_script
         script = get_completion_script(args.generate_completion)
         sys.stdout.write(script)
         return 0
@@ -737,7 +739,8 @@ def _main_impl(argv: list[str] | None = None) -> int:
                     parser.error("-o / --output cannot be used with multiple files")
                 encoded = encode_utf8(converted, source)
                 try:
-                    args.output.write_bytes(encoded)
+                    if not (args.output.exists() and args.output.read_bytes() == encoded):
+                        args.output.write_bytes(encoded)
                 except OSError as error:
                     parser.exit(1, f"color-math: cannot write to {args.output}: {error}\n")
                 return 0

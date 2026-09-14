@@ -2,8 +2,10 @@
 from __future__ import annotations
 import unittest
 
+from color_math.adapters import AdapterError, has_potential_math, transform_document
 from color_math.config import DEFAULT_COLORS, ColorMathOptions, hash_string_to_color
 from color_math.converters.block import convert_text
+from color_math.undo import uncolor_text
 from color_math.converters.generic import color_latex_body
 from color_math.converters.matrix import convert_matrix_block
 from color_math.parsers.alignment import find_alignment_spans, collect_alignment_spans
@@ -389,8 +391,310 @@ $$"""
         self.assertIn(r"\textcolor{#e0af68}{\langle}", res2)
         self.assertIn(r"\textcolor{#e0af68}{\rangle}", res2)
 
+    def test_math_inline_whitespace_rules(self) -> None:
+        # 1. Valid inline math is colored
+        valid = "Let $a=b$ be true."
+        res_valid = convert_text(valid)
+        self.assertIn(r"\textcolor", res_valid)
+        self.assertIn("$", res_valid)
+
+        # 2. Leading whitespace after opening $ is NOT math
+        leading_space = "Not math: $ a=b$ here."
+        self.assertEqual(convert_text(leading_space), leading_space)
+
+        # 3. Trailing whitespace before closing $ is NOT math
+        trailing_space = "Not math: $a=b $ here."
+        self.assertEqual(convert_text(trailing_space), trailing_space)
+
+        # 4. Newline across inline $ is NOT math
+        newline_inline = "Not math: $a=b\n$ here."
+        self.assertEqual(convert_text(newline_inline), newline_inline)
+
+        # 5. Escaped dollar \$ is NOT math
+        escaped_dollar = r"Costs \$a=b\$ here."
+        self.assertEqual(convert_text(escaped_dollar), escaped_dollar)
+
+    def test_currency_protection(self) -> None:
+        # Currency ranges should not be mistakenly paired as math
+        currency1 = "Cost is $20 and profit is $30."
+        self.assertEqual(convert_text(currency1), currency1)
+
+        currency2 = "Spent $100 on groceries."
+        self.assertEqual(convert_text(currency2), currency2)
+
+        # Mixed currency and real math
+        mixed = "Spent $50, but equation is $E=mc^2$."
+        res_mixed = convert_text(mixed)
+        self.assertIn("Spent $50", res_mixed)
+        self.assertIn(r"\textcolor", res_mixed)
+
+    def test_code_protection(self) -> None:
+        # Inline code with math symbols is protected
+        inline_code = "Use `$a=b$` in terminal and $c=d$ in math."
+        res = convert_text(inline_code)
+        self.assertIn("`$a=b$`", res)
+        self.assertIn(r"\textcolor", res)
+
+        # Fenced code block is protected
+        fenced = "```python\nx = '$a=b$'\n```\n$$x=y$$"
+        res_fenced = convert_text(fenced)
+        self.assertIn("x = '$a=b$'", res_fenced)
+        self.assertIn(r"\textcolor", res_fenced)
+
+    def test_fast_path_bypass(self) -> None:
+        # Plain text without any math symbols returns immediately
+        plain = "This is a plain document without any math markers whatsoever."
+        self.assertFalse(has_potential_math(plain, "markdown"))
+        self.assertFalse(has_potential_math(plain, "tex"))
+        self.assertFalse(has_potential_math(plain, "anki"))
+        self.assertEqual(transform_document(plain, "markdown"), plain)
+
+        # Document with $ returns True
+        has_dollar = "Contains $x=1$ math."
+        self.assertTrue(has_potential_math(has_dollar, "markdown"))
+
+        # Anki bracket without dollar returns True
+        has_bracket = r"Contains \[x=1\] math."
+        self.assertTrue(has_potential_math(has_bracket, "anki"))
+        self.assertTrue(has_potential_math(has_bracket, "markdown"))
+
+    def test_anki_and_tex_combinations(self) -> None:
+        # Anki with \[ ... \]
+        anki_source = r"Front \[ \frac{d}{dx} x^2 = 2x \] Back"
+        anki_res = transform_document(anki_source, "anki")
+        self.assertIn(r"\textcolor", anki_res)
+        self.assertIn(r"\[", anki_res)
+
+        # TeX with \begin{equation}
+        tex_source = "\\begin{equation}\n\\frac{d}{dx} x^2 = 2x\n\\end{equation}"
+    def test_empty_and_degenerate_inputs_hard(self) -> None:
+        # 1. Completely empty string across all adapters
+        for fmt in ("markdown", "tex", "anki"):
+            self.assertEqual(transform_document("", fmt), "")
+        self.assertEqual(convert_text(""), "")
+        with self.assertRaises(AdapterError):
+            transform_document("", "jupyter")
+
+        # 2. Whitespace-only strings
+        ws_cases = [
+            " ",
+            "    ",
+            "\t",
+            "\n",
+            "\r\n",
+            "  \t \r\n \n \t  ",
+        ]
+        for ws in ws_cases:
+            for fmt in ("markdown", "tex", "anki"):
+                self.assertEqual(transform_document(ws, fmt), ws)
+            self.assertEqual(convert_text(ws), ws)
+
+        # 3. Pure prose and symbols without math
+        plain_prose = (
+            "Text with numbers 0-9, symbols !@#%^&*()_+-=[]{}|;':\",./<>? and no math.\n"
+            "Second line with tab\tand accents: é, à, ü, ö, ñ, ç.\n"
+        )
+        for fmt in ("markdown", "tex", "anki"):
+            self.assertEqual(transform_document(plain_prose, fmt), plain_prose)
+
+        # 4. Pure comments
+        tex_comment = "% This is a LaTeX comment with no math\n% Another line\n"
+        self.assertEqual(transform_document(tex_comment, "tex"), tex_comment)
+
+        # 5. Degenerate dollar strings
+        degenerate_dollars = [
+            "$",
+            "$$",
+            "$$$",
+            "$$$$",
+            "$ $",
+            "$    $",
+            "$$ $$",
+            "$$   $$",
+            "$$ \n\n $$",
+            "Hello $ world",
+            "Hello $$ world",
+        ]
+        for item in degenerate_dollars:
+            self.assertEqual(convert_text(item), item, f"Failed on {item!r}")
+
+        # 6. Degenerate LaTeX/Anki environments
+        degenerate_envs = [
+            r"\[\]",
+            r"\(\)",
+            r"\[   \]",
+            r"\(   \)",
+            r"\begin{equation}\end{equation}",
+            r"\begin{align}\end{align}",
+            r"\[",
+            r"\(",
+            r"\begin{equation}",
+            r"\end{equation}",
+        ]
+        for item in degenerate_envs:
+            res_md = transform_document(item, "markdown")
+            self.assertNotIn(r"\textcolor", res_md, f"Unexpected color in {item!r}")
+
+        # 7. Empty and degenerate code blocks
+        degenerate_fences = [
+            "```\n```",
+            "````\n````",
+            "~~~\n~~~",
+        ]
+        for fence in degenerate_fences:
+            self.assertEqual(transform_document(fence, "markdown"), fence)
+
+    def test_kitchen_sink_combined_hard(self) -> None:
+        combined_doc = (
+            "# Advanced Mathematics & Notes\r\n"
+            "\r\n"
+            "> [!theorem] Hamiltonian Formulation\r\n"
+            "> In quantum mechanics, the Hamiltonian is given by:\r\n"
+            "> $H = \\frac{p^2}{2m} + V(x)$\r\n"
+            "> and the eigenvalue equation satisfies $H|\\psi\\rangle = E|\\psi\\rangle$.\r\n"
+            ">\r\n"
+            "> We budgeted \\$50 for the experiment, but spent $20 and $30 on materials.\r\n"
+            "> Expected cost was $100 to $200 per sensor.\r\n"
+            "> Notice that $ invalid leading$ and $invalid trailing $ are not math.\r\n"
+            "> Nor is multiline dollar:\r\n"
+            "> $a = b\r\n"
+            "> $\r\n"
+            "> Code elements must remain completely untouched:\r\n"
+            "> `$protected_inline = True$` and ``$double_backtick_protected$``.\r\n"
+            ">\r\n"
+            "> ```python\r\n"
+            "> # Code block with math syntax inside\r\n"
+            "> def simulate():\r\n"
+            ">     cost = '$50'\r\n"
+            ">     equation = '$$E = mc^2$$'\r\n"
+            ">     return f'{cost}: {equation}'\r\n"
+            "> ```\r\n"
+            "\r\n"
+            "## Section with Mixed Delimiters and Environments\r\n"
+            "\r\n"
+            "Here is standard display math:\r\n"
+            "$$\r\n"
+            "\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}\r\n"
+            "$$\r\n"
+            "\r\n"
+            "Punctuation wrapped math: ($x=1$), [$y=2$], and {$z=3$}.\r\n"
+            "Limits and fractions: $\\lim_{\\Delta x \\to 0} \\frac{\\Delta y}{\\Delta x} = \\frac{dy}{dx}$.\r\n"
+            "\r\n"
+            "Anki bracket display:\r\n"
+            "\\[ \\mathbf{F} = m \\mathbf{a} \\]\r\n"
+            "and Anki paren inline:\r\n"
+            "\\( \\Delta x \\cdot \\Delta p \\ge \\frac{\\hbar}{2} \\)\r\n"
+            "\r\n"
+            "TeX multiline align block:\r\n"
+            "\\begin{align}\r\n"
+            "\\nabla \\times \\mathbf{E} &= -\\frac{\\partial \\mathbf{B}}{\\partial t} \\\\\r\n"
+            "\\nabla \\cdot \\mathbf{D} &= \\rho\r\n"
+            "\\end{align}\r\n"
+            "\r\n"
+            "Matrix inside display block:\r\n"
+            "$$\r\n"
+            "\\begin{pmatrix}\r\n"
+            "a & b \\\\\r\n"
+            "c & d\r\n"
+            "\\end{pmatrix}\r\n"
+            "$$\r\n"
+            "\r\n"
+            "~~~latex\r\n"
+            "\\begin{equation}\r\n"
+            "\\text{Verbatim tilde protected: } \\int x dx\r\n"
+            "\\end{equation}\r\n"
+            "~~~\r\n"
+            "\r\n"
+            "Multilingual & emoji support:\r\n"
+            "🚀 Quantum computing: $\\sum_{k=1}^N |k\\rangle\\langle k| = \\mathbf{I}$ 🎉\r\n"
+            "日本語テキスト: $f(x) = x^2$ の計算。\r\n"
+            "Über Schrödinger: $\\hat{H}\\psi = E\\psi$.\r\n"
+            "\r\n"
+            "Final paragraph with no math whatsoever.\r\n"
+        )
+
+        converted = transform_document(combined_doc, "markdown")
+
+        # 1. Check that legitimate math was colored
+        self.assertIn(r"\textcolor", converted)
+        self.assertIn(r"\frac{\textcolor", converted)
+        self.assertIn(r"\sqrt{", converted)
+        self.assertIn(r"\lim_{", converted)
+        self.assertIn(r"\begin{pmatrix}", converted)
+
+        # 2. Check that protected regions are 100% byte-for-byte preserved
+        self.assertIn(r"\$50 for the experiment", converted)
+        self.assertIn("$20 and $30", converted)
+        self.assertIn("$100 to $200", converted)
+        self.assertIn("$ invalid leading$", converted)
+        self.assertIn("$invalid trailing $", converted)
+        self.assertIn("`$protected_inline = True$`", converted)
+        self.assertIn("``$double_backtick_protected$``", converted)
+        self.assertIn("cost = '$50'", converted)
+        self.assertIn("equation = '$$E = mc^2$$'", converted)
+        self.assertIn("\\text{Verbatim tilde protected: } \\int x dx", converted)
+
+        # 3. Check CRLF preservation
+        self.assertIn("\r\n", converted)
+        self.assertEqual(converted.count("\r\n"), combined_doc.count("\r\n"))
+        self.assertNotIn("\n", converted.replace("\r\n", ""))
+
+        # 4. Check Unicode and Emoji preservation
+        self.assertIn("🚀", converted)
+        self.assertIn("🎉", converted)
+        self.assertIn("日本語テキスト", converted)
+        self.assertIn("Über", converted)
+
+        # 5. Check Idempotency (transforming again produces identical output)
+        converted_second_pass = transform_document(converted, "markdown")
+        self.assertEqual(converted_second_pass, converted)
+
+        # 6. Check Lossless Undo
+        uncolored = uncolor_text(converted)
+        self.assertEqual(uncolored, combined_doc)
+
+        # 7. Also verify TeX adapter on a TeX kitchen sink
+        tex_doc = (
+            "\\documentclass{article}\r\n"
+            "\\begin{document}\r\n"
+            "\\begin{align}\r\n"
+            "\\nabla \\times \\mathbf{E} &= -\\frac{\\partial \\mathbf{B}}{\\partial t} \\\\\r\n"
+            "\\nabla \\cdot \\mathbf{D} &= \\rho\r\n"
+            "\\end{align}\r\n"
+            "\\[ \\mathbf{F} = m \\mathbf{a} \\]\r\n"
+            "\\( \\Delta x \\cdot \\Delta p \\ge \\frac{\\hbar}{2} \\)\r\n"
+            "$E = mc^2$\r\n"
+            "\\begin{verbatim}\r\n"
+            "Protected: $x = 1$ and \\begin{equation} y = 2 \\end{equation}\r\n"
+            "\\end{verbatim}\r\n"
+            "\\end{document}\r\n"
+        )
+        converted_tex = transform_document(tex_doc, "tex")
+        self.assertIn(r"\textcolor", converted_tex)
+        self.assertIn(r"Protected: $x = 1$", converted_tex)
+        self.assertIn(r"\begin{equation} y = 2 \end{equation}", converted_tex)
+        self.assertEqual(transform_document(converted_tex, "tex"), converted_tex)
+        self.assertEqual(transform_document(converted_tex, "tex", undo=True), tex_doc)
+
+        # 8. Also verify Anki adapter on an Anki kitchen sink
+        anki_doc = (
+            "Card 1 Front\t"
+            "\\[ \\int_0^1 x^2 dx = \\frac{1}{3} \\] and \\( e^{i\\pi} + 1 = 0 \\)\t"
+            "Card 1 Back\n"
+            "Card 2 Front\t"
+            "[$] \\sum_{n=1}^\\infty \\frac{1}{n^2} = \\frac{\\pi^2}{6} [/$]\t"
+            "Card 2 Back\n"
+        )
+        converted_anki = transform_document(anki_doc, "anki")
+        self.assertIn(r"\textcolor", converted_anki)
+        self.assertIn("Card 1 Front\t", converted_anki)
+        self.assertIn("Card 2 Back", converted_anki)
+        self.assertEqual(transform_document(converted_anki, "anki"), converted_anki)
+        self.assertEqual(transform_document(converted_anki, "anki", undo=True), anki_doc)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 

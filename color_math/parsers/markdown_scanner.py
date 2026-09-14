@@ -353,7 +353,7 @@ def _visible_ranges(
     return ranges
 
 
-def _is_escaped(text: str, index: int, lower_bound: int) -> bool:
+def _is_escaped(text: str, index: int, lower_bound: int = 0) -> bool:
     backslashes = 0
     index -= 1
     while index >= lower_bound and text[index] == "\\":
@@ -465,10 +465,11 @@ def _find_math_inlines(
     for start, end in _visible_ranges(len(text), protected):
         index = start
         while index < end:
-            if text[index] == "$" and (index == 0 or text[index - 1] != "\\"):
+            if text[index] == "$" and not _is_escaped(text, index):
                 if index + 1 < end and text[index + 1] == "$":
                     index += 2
                     continue
+                # Obsidian / Pandoc: No space allowed immediately after opening $
                 if index + 1 < end and text[index + 1] in " \t\r\n":
                     index += 1
                     continue
@@ -478,8 +479,12 @@ def _find_math_inlines(
                 while closing < end:
                     if text[closing] in "\r\n":
                         break
-                    if text[closing] == "$" and text[closing - 1] != "\\":
-                        if text[closing - 1] not in " \t":
+                    if text[closing] == "$" and not _is_escaped(text, closing):
+                        # Obsidian / Pandoc: No space allowed immediately before closing $
+                        # Pandoc / GFM: Closing $ must not be followed immediately by a digit
+                        if text[closing - 1] not in " \t\r\n" and (
+                            closing + 1 == end or not text[closing + 1].isdigit()
+                        ):
                             found = True
                             break
                     closing += 1
@@ -501,9 +506,16 @@ def _find_math_inlines(
 
 def scan_markdown(text: str) -> MarkdownScan:
     """Return exact protected, display-math, and inline-math offsets in ``text``."""
+    if "$" not in text and "`" not in text and "~" not in text:
+        return MarkdownScan((), (), ())
+
     fenced = _find_fenced_code(text)
     code_spans = _find_code_spans(text, fenced)
     protected = tuple(sorted((*fenced, *code_spans), key=lambda span: span.start))
+
+    if "$" not in text:
+        return MarkdownScan(protected, (), ())
+
     math_blocks = _find_math_blocks(text, protected)
     all_protected = tuple(sorted((*protected, *math_blocks), key=lambda span: span.start))
     math_inlines = _find_math_inlines(text, all_protected)

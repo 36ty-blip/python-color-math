@@ -133,6 +133,9 @@ def convert_text(
       - inline $ ... $ math expressions
       - normal text passthrough
     """
+    if "$" not in text:
+        return text
+
     scan = scan_markdown(text)
     all_spans = sorted(
         [*scan.math_blocks, *scan.math_inlines],

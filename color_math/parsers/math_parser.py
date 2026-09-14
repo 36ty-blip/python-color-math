@@ -30,7 +30,7 @@ OPAQUE_MACROS = frozenset({
 })
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SemanticSpan:
     """A recognized source range, kept without rewriting its LaTeX."""
 
@@ -41,7 +41,7 @@ class SemanticSpan:
     depth: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ParsedMath:
     source: str
     normalized: str

@@ -50,6 +50,19 @@ def detect_format(path: Path | None, requested: str = "auto") -> str:
     return "markdown"
 
 
+def has_potential_math(text: str, format_name: str = "auto") -> bool:
+    """Ultra-fast probe to bypass documents that cannot possibly contain math."""
+    if "$" in text:
+        return True
+    if r"\[" in text or r"\(" in text:
+        return True
+    if format_name in ("tex", "auto") and r"\begin{" in text:
+        return True
+    if format_name in ("anki", "auto") and ("[$]" in text or "[$$]" in text):
+        return True
+    return False
+
+
 def transform_document(
     text: str,
     format_name: str,
@@ -57,10 +70,17 @@ def transform_document(
     palette: dict[str, str] | None = None,
     options: ColorMathOptions | None = None,
 ) -> str:
-    if format_name == "markdown":
-        return uncolor_text(text) if undo else convert_text(text, palette=palette, options=options)
     if format_name == "jupyter":
         return _transform_notebook(text, undo, palette=palette, options=options)
+
+    if undo:
+        if r"\textcolor" not in text:
+            return text
+    elif not has_potential_math(text, format_name):
+        return text
+
+    if format_name == "markdown":
+        return uncolor_text(text) if undo else convert_text(text, palette=palette, options=options)
     if format_name == "anki":
         return _transform_delimited(text, ANKI_DELIMITERS, undo, palette=palette, options=options)
     if format_name == "tex":

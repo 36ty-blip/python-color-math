@@ -27,11 +27,17 @@ $$ \frac{d}{dx}\textcolor{#7aa2f7}{f(g(y))} \textcolor{white}{=} \textcolor{#bb9
 ```bash
 pip install python-color-math
 
+# Or with interactive arrow-key tutorial & rich panels:
+pip install "python-color-math[tutorial]"
+
 # Or with native AI Model Context Protocol (MCP) server support:
 pip install "python-color-math[mcp]"
+
+# Or everything:
+pip install "python-color-math[all]"
 ```
 
-*(Or locally from cloned source: `pip install -e .` or `pip install -e ".[mcp]"`)*
+*(Or locally from cloned source: `pip install -e .` or `pip install -e ".[tutorial]"`, `pip install -e ".[all]"`)*
 
 > [!TIP]
 > **Commands & PATH**:
@@ -49,6 +55,7 @@ New to Color Math? Take the 2-minute paced CLI tour with live examples:
 ```bash
 color-math --tutorial
 ```
+*(Runs out of the box with zero dependencies. Install `python-color-math[tutorial]` to unlock arrow-key menus, Rich panels, an interactive LaTeX sandbox, and live theme inspection!)*
 
 ### 2. 🖥️ Graphical Pop-up Window (GUI)
 Prefer visual controls? Launch the native High-DPI pop-up window:

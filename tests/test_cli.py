@@ -7,11 +7,16 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from color_math.config import DEFAULT_COLORS, THEMES, ColorMathOptions
 from color_math.main import build_parser, main
-from color_math.tutorial import run_tutorial
+from color_math.tutorial import (
+    has_tutorial_deps,
+    run_fallback_tutorial,
+    run_rich_tutorial,
+    run_tutorial,
+)
 
 
 class CLITests(unittest.TestCase):
@@ -190,6 +195,72 @@ class CLITests(unittest.TestCase):
         output = stdout.getvalue()
         self.assertIn("Welcome to Python Color Math", output)
         self.assertIn("Chapter 1", output)
+
+    def test_tutorial_has_deps_check(self) -> None:
+        # has_tutorial_deps should return a bool safely
+        res = has_tutorial_deps()
+        self.assertIsInstance(res, bool)
+
+    def test_tutorial_fallback_mode(self) -> None:
+        stdout = io.StringIO()
+        with patch("sys.stdout", stdout):
+            ret = run_fallback_tutorial(input_fn=lambda _: "q")
+        self.assertEqual(ret, 0)
+        output = stdout.getvalue()
+        self.assertIn("python-color-math[tutorial]", output)
+        self.assertIn("Welcome to Python Color Math", output)
+
+    def test_tutorial_force_fallback(self) -> None:
+        stdout = io.StringIO()
+        with patch("sys.stdout", stdout):
+            ret = run_tutorial(input_fn=lambda _: "q", force_fallback=True)
+        self.assertEqual(ret, 0)
+        output = stdout.getvalue()
+        self.assertIn("Welcome to Python Color Math", output)
+
+    def test_tutorial_rich_dispatch(self) -> None:
+        with patch("color_math.tutorial.has_tutorial_deps", return_value=True), \
+             patch("color_math.tutorial.run_rich_tutorial", return_value=0) as mock_rich, \
+             patch("sys.stdin.isatty", return_value=True), \
+             patch("sys.stdout.isatty", return_value=True):
+            ret = run_tutorial()
+            self.assertEqual(ret, 0)
+            mock_rich.assert_called_once()
+
+    def test_run_rich_tutorial_full_flow(self) -> None:
+        if not has_tutorial_deps():
+            self.skipTest("rich and questionary not installed")
+
+        menu_choices = [
+            "1. The Core Idea",
+            "2. Safe Preview",
+            "3. Fixing Mistakes",
+            "4. Batch Processing",
+            "5. 🧪 Interactive LaTeX Playground",
+            "6. 🎨 Live Theme Inspector",
+            "7. 📋 Quick Reference",
+            "8. Exit",
+        ]
+
+        select_mock = MagicMock()
+        select_mock.ask.side_effect = menu_choices
+
+        text_mock = MagicMock()
+        text_mock.ask.return_value = r"\int_0^1 x^2 dx = \frac{1}{3}"
+
+        theme_select_mock = MagicMock()
+        theme_select_mock.ask.return_value = "Catppuccin"
+
+        def fake_select(prompt: str, choices: list[str] | None = None) -> MagicMock:
+            if "theme" in prompt.lower():
+                return theme_select_mock
+            return select_mock
+
+        import questionary
+        with patch.object(questionary, "select", side_effect=fake_select), \
+             patch.object(questionary, "text", return_value=text_mock):
+            ret = run_rich_tutorial()
+            self.assertEqual(ret, 0)
 
     def test_grouped_help_output(self) -> None:
         parser = build_parser()
