@@ -1,0 +1,98 @@
+# Python Color Math Feature Checklist
+
+- [x] CLI single file colorization (`color-math file.md`)
+- [x] CLI in-place file rewrite (`color-math file.md -w`)
+- [x] CLI recursive directory walker (`color-math folder/ -r -w`)
+- [x] CLI linter & CI check mode (`color-math folder/ -r --check`)
+- [x] CLI diff preview mode (`color-math file.md --diff`)
+- [x] CLI watch mode for live file updates (`color-math file.md --watch`)
+- [x] CLI preset switcher (`--preset minimal`, `--preset full`)
+- [x] CLI theme switcher (`--theme catppuccin`, `--theme nord`, `--theme light`)
+- [x] CLI document uncoloring / undo (`color-math file.md --undo -w`)
+- [x] CLI config generator (`color-math --init-config`)
+- [x] CLI config reset (`color-math --reset-colors`)
+- [x] CLI diagnostic self-test command (`color-math --self-test`)
+- [x] CLI interactive terminal tutorial with ANSI formatting (`color-math --tutorial`)
+- [x] Tkinter interactive graphical user interface (`color-math --ui`)
+- [x] GUI side-by-side live input/output preview
+- [x] GUI file browser and folder batch runner
+- [x] GUI theme picker and feature toggles
+- [x] AI Assistant Model Context Protocol server (`color-math-mcp` / `--mcp`)
+- [x] MCP tool: `colorize_math_expression`
+- [x] MCP tool: `colorize_markdown_document`
+- [x] MCP tool: `uncolorize_document`
+- [x] MCP tool: `inspect_math_structure`
+- [x] MCP tool: `list_supported_themes`
+- [x] Shell completions generator: Bash
+- [x] Shell completions generator: Zsh
+- [x] Shell completions generator: Fish
+- [x] Shell completions generator: PowerShell
+- [x] Configuration parser (`.colormath.json` with fallback to `.colormath.default.json`)
+- [x] Global configuration directory resolution (`~/.config/colormath/`)
+- [x] Preset themes: Default Tokyo Night
+- [x] Preset themes: Catppuccin
+- [x] Preset themes: Nord
+- [x] Preset themes: Light
+- [x] Multi-format adapter: Markdown documents (`.md`)
+- [x] Multi-format adapter: Jupyter Notebooks (`.ipynb`) with cell-by-cell JSON preservation
+- [x] Multi-format adapter: LaTeX source files (`.tex`)
+- [x] Multi-format adapter: Anki flashcard exports (`.txt`, `.tsv`, `[$]...[/$]`, `\(...)`, `\[...\]`)
+- [x] File I/O encoding safety: UTF-8 BOM preservation
+- [x] File I/O line ending preservation: CRLF vs LF
+- [x] File backup generation (`.bak`) during in-place writes
+- [x] Rainbow delimiters: parentheses `()`
+- [x] Rainbow delimiters: square brackets `[]`
+- [x] Rainbow delimiters: escaped set braces `\{ \}`
+- [x] Rainbow delimiters: Dirac angle brackets `\langle \rangle`
+- [x] Rainbow delimiters: sized open delimiters (`\bigl`, `\Bigl`, `\biggl`, `\Biggl`)
+- [x] Rainbow delimiters: sized close delimiters (`\bigr`, `\Bigr`, `\biggr`, `\Biggr`)
+- [x] Rainbow delimiters: bare grouping braces `{}` depth counting (`find_delimiter_scan`)
+- [x] Unmatched delimiter & stray brace error detection (`#f7768e`)
+- [x] Environment header skipping (`\begin{matrix}`, `\end{matrix}`)
+- [x] Multi-argument environment skipping (`\begin{array}{cc|c}`)
+- [x] Bake protection: bare braces `{}` strictly excluded when `for_latex_wrap=True`
+- [x] Bake protection: atomic `\left...\right` span wrapping for KaTeX/MathJax safety
+- [x] Lossless uncoloring engine (`uncolor_text`, `uncolor_fragment`)
+- [x] Boxed expression support (`\boxed{...}` preserved and contents colored)
+- [x] Matrix environments: `matrix`, `pmatrix`, `bmatrix`, `vmatrix`, `Vmatrix`
+- [x] Aligned math environments: `align`, `align*`, `aligned`, `alignedat`, `gather`, `gathered`
+- [x] Case environments: `cases`
+- [x] Matrix & table alignment tokens coloring (`&` and `\\`)
+- [x] Physical units parser (`parsers/units.py`)
+- [x] Unit prefixes and compound units (`km/h`, `m/s^2`)
+- [x] Unit macros (`\text{...}`, `\mathrm{...}`, `\pu{...}`, `\unit{...}`)
+- [x] Differentials parser: total differentials (`dx`, `dy`, `dt`)
+- [x] Differentials parser: partial differentials (`\partial x`, `\partial t`)
+- [x] Differentials parser: higher-order differentials (`d^2x`, `\partial^2 f`)
+- [x] Differentials parser: vector operators (`\nabla`, `\nabla \times`, `\nabla \cdot`)
+- [x] Derivatives: Lagrange prime notation (`f'(x)`, `f''(x)`, `y'''`)
+- [x] Derivatives: Newton dot notation (`\dot{x}`, `\ddot{x}`, `\dddot{x}`)
+- [x] Derivatives: Leibniz fraction notation (`\frac{df}{dx}`, `\frac{\partial u}{\partial t}`)
+- [x] Dirac bra-ket: kets `\ket{\psi}`
+- [x] Dirac bra-ket: bras `\bra{\phi}`
+- [x] Dirac bra-ket: inner products `\braket{\phi|\psi}` and `\langle \phi | \psi \rangle`
+- [x] Dirac bra-ket: projection operators `\ketbra{\psi}{\phi}` and `|\psi\rangle\langle\phi|`
+- [x] Dirac bra-ket: expectation values `\langle \psi | \hat{H} | \psi \rangle`
+- [x] Dimensionless numbers: integers, decimals, scientific notation, exponents
+- [x] Mathematical constants: `\pi`, `\varpi`, `e`, `i`, `\hbar`, `\infty`, `\ell`, `\aleph`
+- [x] Variable data-flow consistent hash coloring (`parsers/variable_hash.py`)
+- [x] Entity taxonomy classification engine (`parsers/taxonomy.py`)
+- [x] Unbraced argument normalization (`\frac2L -> \frac{2}{L}`, `\sqrt V -> \sqrt{V}`)
+- [x] Script argument normalization (`x^2 -> x^{2}`, `a_1 -> a_{1}`)
+- [x] Verbatim block protection (`\verb|...|`)
+- [x] TeX comment protection (`% ...`)
+- [x] Currency protection (`$20 and $30` not misparsed as math delimiters)
+- [x] Inline math whitespace rules (`$ a$` and `$a $` ignored per CommonMark rules)
+- [x] Markdown code block protection (```` ```math ```` and inline `` ` `` ignored)
+- [x] Multi-line math block support (`$$ ... $$`)
+- [x] YAML frontmatter per-note configuration overrides (`parsers/frontmatter.py`)
+- [x] Bidirectional LaTeX <-> Unicode converter (`converters/unicode_converter.py`)
+- [x] User custom definitions module (`custom_definitions.py`)
+- [x] Custom functions registration: `relu`, `sinc`, `gelu`, `swish`, `silu`, `softmax`, `sigmoid`, `mish`, `loss`
+- [x] Custom physical constants: `\kB`, `\muB`, `\epsZero`, `\NA`
+- [x] Custom vector calculus operators: `\grad`, `\curl`, `\div`, `\laplacian`, `\Box`
+- [x] Custom quantum operators: `\hat{H}`, `\hat{p}`, `\hat{x}`, `\hat{a}`, `\hat{a}^\dagger`, etc.
+- [x] Custom relations and assignment operators: `\coloneqq`, `\eqqcolon`, `\triangleq`
+- [x] Mathematical Plane 1 Greek Unicode support: `𝜓` (`U+1D713`), `𝝍` (`U+1D74D`)
+- [x] Full unit test suite (144 tests passing)
+- [x] Version tracking (`0.2.12`)

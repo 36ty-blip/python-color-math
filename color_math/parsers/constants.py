@@ -78,9 +78,9 @@ def is_imaginary_unit(body: str, index: int) -> bool:
     if rem.startswith("^2") or rem.startswith("^{2}"):
         return True
 
-    # Followed by constant or greek: \pi, \theta, \omega, \hbar
+    # Followed by constant or greek: \pi, \theta, \omega, \hbar, ℏ, π, θ, ω, ϕ, ψ, 𝜓, 𝝍
     import re
-    if re.match(r"^\\(?:pi|theta|omega|hbar|phi|psi)", rem):
+    if re.match(r"^(?:\\(?:pi|theta|omega|hbar|phi|psi)|[ℏπθωϕψΨ]|𝜓|𝝍)", rem):
         return True
 
     # Followed by variable like y in x + iy, or in exponent

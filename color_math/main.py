@@ -26,10 +26,16 @@ from .config import (
     save_default_config,
 )
 from .completions import SHELLS
+from .converters.unicode_converter import (
+    convert_document_math,
+    convert_latex_to_unicode,
+    convert_unicode_to_latex,
+    UnicodeConversionOptions,
+)
 from .io import encode_utf8, read_utf8, replace_bytes
 from .parsers.math_parser import describe_math_blocks
 
-VERSION = "0.2.3"
+VERSION = "0.2.8"
 SUPPORTED_EXTENSIONS = {".md", ".markdown", ".qmd", ".ipynb", ".tex", ".latex"}
 DEFAULT_EXCLUDES = {
     ".git",
@@ -286,6 +292,47 @@ def build_parser() -> argparse.ArgumentParser:
         help="Remove LaTeX color wrappers instead of adding them.",
     )
 
+    # Unicode Math & Typography Group
+    unicode_group = parser.add_argument_group("Unicode Math & Typography")
+    unicode_group.add_argument(
+        "--to-unicode",
+        action="store_true",
+        help="Convert LaTeX math commands inside math expressions ($...$, $$...$$) to Unicode math symbols.",
+    )
+    unicode_group.add_argument(
+        "--to-latex",
+        action="store_true",
+        help="Convert Unicode math symbols inside math expressions ($...$, $$...$$) back to canonical LaTeX.",
+    )
+    unicode_group.add_argument(
+        "--definite-integrals",
+        action="store_true",
+        help="Convert definite/bounded integrals (e.g. \\int_a^b) to Unicode (default: false, preserves LaTeX for proper TeX limit placement).",
+    )
+    unicode_group.add_argument(
+        "--bounded-operators",
+        action="store_true",
+        help="Convert bounded operators (e.g. \\sum_i^n) to Unicode (default: false, preserves LaTeX for proper limits).",
+    )
+    unicode_group.add_argument(
+        "--greek-style",
+        choices=["plane1", "standard"],
+        default=None,
+        help="Greek letter style when converting to Unicode: 'plane1' (Mathematical Italic: 𝝍, 𝝰) or 'standard' (ψ, α).",
+    )
+    unicode_group.add_argument(
+        "--prose-to-unicode",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Convert LaTeX math commands in prose outside math expressions to Unicode (default: enabled).",
+    )
+    unicode_group.add_argument(
+        "--prose-to-latex",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Convert Unicode math symbols in prose outside math expressions back to LaTeX (default: disabled).",
+    )
+
     # Interactive, Help & Utilities Group
     interactive_group = parser.add_argument_group("Interactive, Help & Diagnostics")
     interactive_group.add_argument(
@@ -513,6 +560,9 @@ def _main_impl(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.to_unicode and args.to_latex:
+        parser.error("cannot specify both --to-unicode and --to-latex")
+
     # 1. Self-test & tutorial
     if args.update_generated and not args.self_test:
         parser.error("--update-generated requires --self-test")
@@ -541,7 +591,7 @@ def _main_impl(argv: list[str] | None = None) -> int:
         return 0
 
     # 3. Load base configuration & theme
-    palette, config_options = load_config(args.config)
+    palette, config_options, unicode_config = load_config(args.config)
     if args.theme:
         palette.update(get_theme(args.theme))
 
@@ -578,6 +628,20 @@ def _main_impl(argv: list[str] | None = None) -> int:
 
     # Resolve options
     options = resolve_options(args, config_options)
+    unicode_direction = "to-unicode" if args.to_unicode else ("to-latex" if args.to_latex else None)
+    greek_style = args.greek_style if args.greek_style is not None else str(unicode_config.get("greek_style", "plane1"))
+    definite_integrals = args.definite_integrals or bool(unicode_config.get("convert_definite_integrals", False))
+    bounded_operators = args.bounded_operators or bool(unicode_config.get("convert_bounded_operators", False))
+    prose_to_unicode = args.prose_to_unicode if args.prose_to_unicode is not None else bool(unicode_config.get("convert_prose_to_unicode", True))
+    prose_to_latex = args.prose_to_latex if args.prose_to_latex is not None else bool(unicode_config.get("convert_prose_to_latex", False))
+
+    unicode_opts = UnicodeConversionOptions(
+        convert_definite_integrals=definite_integrals,
+        convert_bounded_operators=bounded_operators,
+        greek_style=greek_style,
+        convert_prose_to_unicode=prose_to_unicode,
+        convert_prose_to_latex=prose_to_latex,
+    )
 
     # Launch Graphical User Interface
     if args.ui:
@@ -693,16 +757,23 @@ def _main_impl(argv: list[str] | None = None) -> int:
                 sys.stdout.write(describe_math_blocks(text))
                 return 0
 
-            try:
-                converted = transform_document(
+            if unicode_direction:
+                converted = convert_document_math(
                     text,
-                    format_name,
-                    undo=args.undo,
-                    palette=palette,
-                    options=options,
+                    unicode_direction,
+                    unicode_opts,
                 )
-            except AdapterError as error:
-                parser.exit(1, f"color-math: {path}: {error}\n")
+            else:
+                try:
+                    converted = transform_document(
+                        text,
+                        format_name,
+                        undo=args.undo,
+                        palette=palette,
+                        options=options,
+                    )
+                except AdapterError as error:
+                    parser.exit(1, f"color-math: {path}: {error}\n")
 
             is_changed = converted != text
             if is_changed:
@@ -826,16 +897,31 @@ def _main_impl(argv: list[str] | None = None) -> int:
         sys.stdout.write(describe_math_blocks(text))
         return 0
 
-    try:
-        converted = transform_document(
-            text,
-            format_name,
-            undo=args.undo,
-            palette=palette,
-            options=options,
-        )
-    except AdapterError as error:
-        parser.exit(1, f"color-math: {error}\n")
+    if unicode_direction:
+        if "$" in text or "`" in text or "\n" in text:
+            converted = convert_document_math(text, unicode_direction, unicode_opts)
+        else:
+            words = [w for w in text.split() if w.isalpha()]
+            is_prose = len(words) >= 3 and not any(c in text for c in "=+\\∂∫∑∏≤≥≠→⟹")
+            if is_prose:
+                converted = convert_document_math(text, unicode_direction, unicode_opts)
+            else:
+                converted = (
+                    convert_latex_to_unicode(text, unicode_opts)
+                    if args.to_unicode
+                    else convert_unicode_to_latex(text)
+                )
+    else:
+        try:
+            converted = transform_document(
+                text,
+                format_name,
+                undo=args.undo,
+                palette=palette,
+                options=options,
+            )
+        except AdapterError as error:
+            parser.exit(1, f"color-math: {error}\n")
 
     if args.diff:
         diff_output = generate_diff(text, converted, label)

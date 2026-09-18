@@ -15,6 +15,7 @@ from ..parsers.dimensionless import find_dimensionless_spans, collect_dimensionl
 from ..parsers.delimiters import collect_delimiter_spans
 from ..parsers.taxonomy import collect_taxonomy_spans
 from ..parsers.variable_hash import collect_variable_spans
+from ..parsers.physics import collect_quantum_operator_spans
 from ..utils.latex_helpers import contains_color_wrapper, normalize_latex_braces
 from ..utils.spans import ColorSpan, apply_color_spans
 from ..undo import uncolor_fragment
@@ -104,13 +105,26 @@ def color_latex_body(
         spans.extend(collect_single_constant_spans(normalized, pal))
 
     if opts.rainbow_delimiters:
-        spans.extend(collect_delimiter_spans(normalized))
+        spans.extend(
+            collect_delimiter_spans(
+                normalized,
+                for_latex_wrap=True,
+                include_bare_braces=opts.rainbow_bare_braces,
+                highlight_unmatched=opts.highlight_unmatched_braces,
+            )
+        )
 
     if opts.enable_taxonomy:
         spans.extend(collect_taxonomy_spans(normalized, pal, unit_spans, diff_spans, dim_spans))
 
     if opts.variable_data_flow:
         spans.extend(collect_variable_spans(normalized, None, unit_spans, diff_spans, dim_spans, bare_functions))
+
+    if opts.color_quantum_operators or opts.field in ("quantum", "physics"):
+        quantum_spans = collect_quantum_operator_spans(normalized, pal, opts)
+        if quantum_spans:
+            spans = [s for s in spans if not any(q.start <= s.start and s.end <= q.end for q in quantum_spans)]
+            spans.extend(quantum_spans)
 
     return apply_color_spans(normalized, spans)
 

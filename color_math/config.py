@@ -18,6 +18,7 @@ DEFAULT_COLORS = {
     "spacing": "white",
     "parameter": "#bb9af7",
     "unit": "#73daca",
+    "energy_operator": "#2ac3de",
 }
 
 THEMES: dict[str, dict[str, str]] = {
@@ -84,6 +85,39 @@ ROLE_DESCRIPTIONS: dict[str, str] = {
 COLORS = dict(DEFAULT_COLORS)
 
 
+from .unicode import (
+    UNICODE_BIG_OPERATORS,
+    UNICODE_INTEGRALS,
+    UNICODE_RELATIONS,
+    UNICODE_ARROWS,
+    UNICODE_SETS,
+    UNICODE_MULTIPLICATION,
+    UNICODE_CONSTANTS,
+    UNICODE_VECTORS,
+    UNICODE_GREEK_LOWER_STANDARD,
+    UNICODE_GREEK_LOWER_PLANE1,
+    UNICODE_GREEK_UPPER_STANDARD,
+    UNICODE_GREEK_UPPER_PLANE1,
+)
+from .custom_definitions import (
+    CUSTOM_CONSTANTS,
+    CUSTOM_FUNCTIONS,
+    CUSTOM_OPERATORS,
+    CUSTOM_PARAMETERS,
+    CUSTOM_QUANTUM_OPERATORS,
+    CUSTOM_RELATIONS,
+    sanitize_definition,
+)
+
+CUSTOM_BARE_FUNCTIONS: set[str] = set()
+CUSTOM_MACRO_FUNCTIONS: set[str] = set()
+for _raw_fn in CUSTOM_FUNCTIONS:
+    _macro, _bare = sanitize_definition(_raw_fn)
+    if _bare:
+        CUSTOM_BARE_FUNCTIONS.add(_bare)
+    if _macro:
+        CUSTOM_MACRO_FUNCTIONS.add(_macro)
+
 BIG_OPERATORS = {
     r"\sum",
     r"\prod",
@@ -95,6 +129,8 @@ BIG_OPERATORS = {
     r"\bigwedge",
     r"\bigoplus",
     r"\bigotimes",
+    *UNICODE_BIG_OPERATORS.values(),
+    *CUSTOM_OPERATORS,
 }
 
 
@@ -103,6 +139,7 @@ INTEGRALS = {
     r"\iint",
     r"\iiint",
     r"\oint",
+    *UNICODE_INTEGRALS.values(),
 }
 
 
@@ -138,6 +175,8 @@ RELATIONS = {
     "=",
     "<",
     ">",
+    *UNICODE_RELATIONS.values(),
+    *CUSTOM_RELATIONS,
 }
 
 
@@ -160,6 +199,7 @@ ARROWS = {
     r"\Leftrightarrow",
     r"\mapsto",
     r"\to",
+    *UNICODE_ARROWS.values(),
 }
 
 
@@ -182,6 +222,7 @@ SET_SYMBOLS = {
     r"\in",
     r"\cup",
     r"\cap",
+    *UNICODE_SETS.values(),
 }
 
 
@@ -199,6 +240,8 @@ MULTIPLICATION_SYMBOLS = {
     r"\times",
     "·",
     "*",
+    "×",
+    "✕",
 }
 
 
@@ -216,6 +259,7 @@ FUNCTION_COMMANDS = {
     r"\sinh",
     r"\tan",
     r"\tanh",
+    *CUSTOM_MACRO_FUNCTIONS,
 }
 
 
@@ -229,6 +273,7 @@ COLOR_COMMANDS = (
     | SET_SYMBOLS
     | SPACING_COMMANDS
     | MULTIPLICATION_SYMBOLS
+    | set(CUSTOM_QUANTUM_OPERATORS)
 )
 
 
@@ -256,6 +301,8 @@ MATH_CONSTANTS = {
     r"\mathrm{e}",
     r"\mathrm{i}",
     r"\mathrm{j}",
+    *UNICODE_CONSTANTS.values(),
+    *CUSTOM_CONSTANTS,
 }
 
 
@@ -377,14 +424,13 @@ EXTENDED_BARE_FUNCTIONS = frozenset({
 })
 
 FULL_BARE_FUNCTIONS = STANDARD_BARE_FUNCTIONS | EXTENDED_BARE_FUNCTIONS
-ALL_BARE_FUNCTIONS = FULL_BARE_FUNCTIONS
-BARE_FUNCTIONS = FULL_BARE_FUNCTIONS
+ALL_BARE_FUNCTIONS = FULL_BARE_FUNCTIONS | CUSTOM_BARE_FUNCTIONS
+BARE_FUNCTIONS = ALL_BARE_FUNCTIONS
 
 
 def get_bare_functions(options: ColorMathOptions | None = None) -> frozenset[str]:
-    if options is not None and not options.extended_functions:
-        return STANDARD_BARE_FUNCTIONS
-    return FULL_BARE_FUNCTIONS
+    base = FULL_BARE_FUNCTIONS if (options is None or options.extended_functions) else STANDARD_BARE_FUNCTIONS
+    return frozenset(base | CUSTOM_BARE_FUNCTIONS)
 
 
 MATH_ACCENTS = {
@@ -445,7 +491,17 @@ MATH_PARAMETERS = {
     r"\Phi",
     r"\Psi",
     r"\Omega",
+    *UNICODE_GREEK_LOWER_STANDARD.values(),
+    *UNICODE_GREEK_LOWER_PLANE1.values(),
+    *UNICODE_GREEK_UPPER_STANDARD.values(),
+    *UNICODE_GREEK_UPPER_PLANE1.values(),
+    "𝜓",
+    "𝝍",
+    *CUSTOM_PARAMETERS,
 }
+
+NON_SLASH_MATH_CONSTANTS = {c for c in MATH_CONSTANTS if not c.startswith("\\")}
+NON_SLASH_MATH_PARAMETERS = {c for c in MATH_PARAMETERS if not c.startswith("\\")}
 
 
 MATH_FUNCTIONS = {
@@ -541,6 +597,7 @@ MATH_FUNCTIONS = {
     r"\dn",
     r"\avg",
     r"\len",
+    *CUSTOM_MACRO_FUNCTIONS,
 }
 
 
@@ -588,6 +645,10 @@ class ColorMathOptions:
     color_single_constants: bool = False
     normalize_braces: bool = False
     extended_functions: bool = True
+    color_quantum_operators: bool = False
+    rainbow_bare_braces: bool = False
+    highlight_unmatched_braces: bool = False
+    field: str = "math"
 
     @classmethod
     def extended(cls) -> ColorMathOptions:
@@ -604,6 +665,8 @@ class ColorMathOptions:
             color_single_constants=True,
             normalize_braces=False,
             extended_functions=True,
+            rainbow_bare_braces=False,
+            highlight_unmatched_braces=True,
         )
 
     @classmethod
@@ -621,6 +684,8 @@ class ColorMathOptions:
             color_single_constants=True,
             normalize_braces=False,
             extended_functions=True,
+            rainbow_bare_braces=True,
+            highlight_unmatched_braces=True,
         )
 
 
@@ -665,11 +730,51 @@ def get_global_config_path() -> Path | None:
     return None
 
 
-def load_config(path: Path | None = None) -> tuple[dict[str, str], ColorMathOptions]:
+DEFAULT_UNICODE_CONFIG: dict[str, object] = {
+    "greek_style": "plane1",
+    "convert_definite_integrals": False,
+    "convert_bounded_operators": False,
+    "convert_prose_to_unicode": False,
+    "convert_prose_to_latex": False,
+}
+
+
+def get_bundled_default_config_path() -> Path:
+    """Return path to bundled colormath.default.json."""
+    return Path(__file__).parent / "colormath.default.json"
+
+
+def get_bundled_default_config() -> dict[str, object]:
+    """Load the factory defaults configuration object."""
+    default_path = get_bundled_default_config_path()
+    if default_path.exists():
+        try:
+            return json.loads(default_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {
+        "_comment": "Python Color Math factory default configuration",
+        "theme": "default",
+        "colors": dict(DEFAULT_COLORS),
+        "options": asdict(ColorMathOptions()),
+        "unicode": dict(DEFAULT_UNICODE_CONFIG),
+        "_role_descriptions": ROLE_DESCRIPTIONS,
+    }
+
+
+def load_config(
+    path: Path | None = None,
+) -> tuple[dict[str, str], ColorMathOptions, dict[str, object]]:
     """
     Load configuration from path, local '.colormath.json', or global user config.
-    Returns (palette_dict, ColorMathOptions).
+    Fault-tolerant: If the user file contains JSON syntax errors or invalid types,
+    a warning is emitted and it safely falls back to factory defaults without crashing.
+    Returns (palette_dict, ColorMathOptions, unicode_config_dict).
     """
+    palette = dict(DEFAULT_COLORS)
+    options = ColorMathOptions()
+    unicode_config = dict(DEFAULT_UNICODE_CONFIG)
+
     target = path
     if target is None:
         local_candidate = Path(".colormath.json")
@@ -681,48 +786,87 @@ def load_config(path: Path | None = None) -> tuple[dict[str, str], ColorMathOpti
                 target = global_candidate
 
     if target is None or not target.exists():
-        return dict(DEFAULT_COLORS), ColorMathOptions()
+        return palette, options, unicode_config
 
     try:
         data = json.loads(target.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            sys.stderr.write(
+                f"color-math warning: config file '{target}' must contain a JSON object. "
+                "Safely falling back to default configuration.\n"
+            )
+            return palette, options, unicode_config
     except Exception as err:
-        raise ValueError(f"Failed to parse config file {target}: {err}") from err
+        sys.stderr.write(
+            f"color-math warning: failed to parse config file '{target}': {err}. "
+            "Safely falling back to default configuration.\n"
+        )
+        return palette, options, unicode_config
 
-    palette = dict(DEFAULT_COLORS)
-    if isinstance(data, dict):
-        if "theme" in data and isinstance(data["theme"], str):
-            try:
-                palette.update(get_theme(data["theme"]))
-            except ValueError:
-                pass
-        if "colors" in data and isinstance(data["colors"], dict):
-            for k, v in data["colors"].items():
-                if isinstance(k, str) and isinstance(v, str):
-                    palette[k] = v
+    # 1. Apply theme
+    if "theme" in data and isinstance(data["theme"], str):
+        try:
+            palette.update(get_theme(data["theme"]))
+        except ValueError:
+            pass
 
-    raw_options = data.get("options", {}) if isinstance(data, dict) else {}
-    options = ColorMathOptions(
-        enable_taxonomy=bool(raw_options.get("enable_taxonomy", False)),
-        rainbow_delimiters=bool(raw_options.get("rainbow_delimiters", False)),
-        variable_data_flow=bool(raw_options.get("variable_data_flow", False)),
-        color_units=bool(raw_options.get("color_units", False)),
-        color_differentials=bool(raw_options.get("color_differentials", False)),
-        color_braket=bool(raw_options.get("color_braket", False)),
-        color_dimensionless=bool(raw_options.get("color_dimensionless", False)),
-    )
-    return palette, options
+    # 2. Apply color overrides
+    if "colors" in data and isinstance(data["colors"], dict):
+        for k, v in data["colors"].items():
+            if isinstance(k, str) and isinstance(v, str) and k in DEFAULT_COLORS:
+                palette[k] = v
+
+    # 3. Apply engine options
+    if "options" in data and isinstance(data["options"], dict):
+        raw_options = data["options"]
+        options = ColorMathOptions(
+            enable_taxonomy=bool(raw_options.get("enable_taxonomy", options.enable_taxonomy)),
+            rainbow_delimiters=bool(raw_options.get("rainbow_delimiters", options.rainbow_delimiters)),
+            variable_data_flow=bool(raw_options.get("variable_data_flow", options.variable_data_flow)),
+            color_units=bool(raw_options.get("color_units", options.color_units)),
+            color_differentials=bool(raw_options.get("color_differentials", options.color_differentials)),
+            color_braket=bool(raw_options.get("color_braket", options.color_braket)),
+            color_dimensionless=bool(raw_options.get("color_dimensionless", options.color_dimensionless)),
+            color_alignment=bool(raw_options.get("color_alignment", options.color_alignment)),
+            color_single_constants=bool(raw_options.get("color_single_constants", options.color_single_constants)),
+            normalize_braces=bool(raw_options.get("normalize_braces", options.normalize_braces)),
+            extended_functions=bool(raw_options.get("extended_functions", options.extended_functions)),
+            color_quantum_operators=bool(raw_options.get("color_quantum_operators", options.color_quantum_operators)),
+            rainbow_bare_braces=bool(raw_options.get("rainbow_bare_braces", options.rainbow_bare_braces)),
+            highlight_unmatched_braces=bool(raw_options.get("highlight_unmatched_braces", options.highlight_unmatched_braces)),
+            field=str(raw_options.get("field", options.field)),
+        )
+
+    # 4. Apply unicode options
+    if "unicode" in data and isinstance(data["unicode"], dict):
+        raw_unicode = data["unicode"]
+        if "greek_style" in raw_unicode and raw_unicode["greek_style"] in ("plane1", "standard"):
+            unicode_config["greek_style"] = raw_unicode["greek_style"]
+        if "convert_definite_integrals" in raw_unicode:
+            unicode_config["convert_definite_integrals"] = bool(raw_unicode["convert_definite_integrals"])
+        if "convert_bounded_operators" in raw_unicode:
+            unicode_config["convert_bounded_operators"] = bool(raw_unicode["convert_bounded_operators"])
+        if "convert_prose_to_unicode" in raw_unicode:
+            unicode_config["convert_prose_to_unicode"] = bool(raw_unicode["convert_prose_to_unicode"])
+        if "convert_prose_to_latex" in raw_unicode:
+            unicode_config["convert_prose_to_latex"] = bool(raw_unicode["convert_prose_to_latex"])
+
+    return palette, options, unicode_config
 
 
 def save_default_config(path: Path) -> Path:
-    """Save the clean default configuration to path."""
-    content = {
-        "_comment": "Python Color Math configuration file",
-        "theme": "default",
-        "colors": dict(DEFAULT_COLORS),
-        "options": asdict(ColorMathOptions()),
-        "_role_descriptions": ROLE_DESCRIPTIONS,
-    }
+    """Save the clean default configuration to path, and copy the reference default file."""
+    content = get_bundled_default_config()
     path.write_text(json.dumps(content, indent=2), encoding="utf-8")
+
+    # Also save .colormath.default.json alongside .colormath.json if appropriate
+    target_dir = path.parent
+    default_ref_path = target_dir / ".colormath.default.json"
+    try:
+        default_ref_path.write_text(json.dumps(content, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
     return path
 
 

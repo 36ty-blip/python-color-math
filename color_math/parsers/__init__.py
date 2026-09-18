@@ -20,7 +20,14 @@ from .units import UnitSpan, find_unit_spans, collect_unit_spans
 from .differentials import DifferentialSpan, find_differential_spans, collect_differential_spans
 from .braket import BraKetSpan, find_braket_spans, collect_braket_delimiter_spans
 from .dimensionless import DimensionlessSpan, find_dimensionless_spans, collect_dimensionless_spans
-from .delimiters import DelimiterPair, find_delimiter_pairs, collect_delimiter_spans
+from .delimiters import (
+    DelimiterItem,
+    DelimiterPair,
+    DelimiterScanResult,
+    find_delimiter_pairs,
+    find_delimiter_scan,
+    collect_delimiter_spans,
+)
 from .taxonomy import collect_taxonomy_spans
 from .variable_hash import collect_variable_spans
 from .constants import is_euler_constant, is_imaginary_unit, collect_single_constant_spans
@@ -58,8 +65,11 @@ __all__ = [
     "DimensionlessSpan",
     "find_dimensionless_spans",
     "collect_dimensionless_spans",
+    "DelimiterItem",
     "DelimiterPair",
+    "DelimiterScanResult",
     "find_delimiter_pairs",
+    "find_delimiter_scan",
     "collect_delimiter_spans",
     "collect_taxonomy_spans",
     "collect_variable_spans",

@@ -15,7 +15,7 @@ from .semantic import first_equality, parse_math_block, relation_spans
 
 MATRIX_COMMAND_RE = re.compile(
     r"\\(?:mathbf|mathcal|nabla|det|tr|Tr|trace|Vert|lVert)"
-    r"(?![A-Za-z])|\\\|(?![A-Za-z])|"
+    r"(?![A-Za-z])|∇|\\\|(?![A-Za-z])|"
     r"\\operatorname\s*\{\s*tr\s*\}"
 )
 MATRIX_ENV_RE = re.compile(
@@ -126,13 +126,13 @@ def convert_matrix_block(source: str) -> str | None:
             if lhs_first.startswith((r"\det", r"\operatorname{tr}"))
             else ("main",)
         )
-    elif lhs_first.startswith((r"\frac{\partial}", r"\nabla")):
+    elif lhs_first.startswith((r"\frac{\partial}", r"\dfrac{\partial}", r"\tfrac{\partial}", r"\frac{∂}", r"\dfrac{∂}", r"\tfrac{∂}", r"\nabla", "∇")):
         lhs_colors = ("upper", "main")
     else:
         lhs_colors = ("upper", "chain", "orange")
 
     lhs_text = re.sub(r"\s+", "", block.body[:equality[0]])
-    if lhs_first.startswith(r"\frac{\partial}"):
+    if lhs_first.startswith((r"\frac{\partial}", r"\dfrac{\partial}", r"\tfrac{\partial}", r"\frac{∂}", r"\dfrac{∂}", r"\tfrac{∂}")):
         rhs_colors = ("chain", "main")
     elif len(lhs) > 1 and len(rhs) == 1:
         rhs_colors = ("main",)

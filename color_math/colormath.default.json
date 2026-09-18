@@ -1,0 +1,57 @@
+{
+  "_comment": "Python Color Math factory default configuration. This file serves as an immutable reference. To customize settings, edit '.colormath.json'. If '.colormath.json' has syntax errors or missing keys, Color Math safely falls back to these defaults.",
+  "theme": "default",
+  "colors": {
+    "main": "#7aa2f7",
+    "orange": "#e0af68",
+    "dot": "white",
+    "derivative": "#bb9af7",
+    "chain": "#9ece6a",
+    "upper": "#bb9af7",
+    "relation": "white",
+    "arrow": "#f7768e",
+    "set": "#bb9af7",
+    "spacing": "white",
+    "parameter": "#bb9af7",
+    "unit": "#73daca"
+  },
+  "options": {
+    "enable_taxonomy": true,
+    "rainbow_delimiters": true,
+    "variable_data_flow": false,
+    "color_units": true,
+    "color_differentials": true,
+    "color_braket": true,
+    "color_dimensionless": true,
+    "rainbow_bare_braces": false,
+    "highlight_unmatched_braces": false
+  },
+  "unicode": {
+    "greek_style": "plane1",
+    "convert_definite_integrals": false,
+    "convert_bounded_operators": false,
+    "convert_prose_to_unicode": false,
+    "convert_prose_to_latex": false
+  },
+  "_role_descriptions": {
+    "main": "Primary functions, terms, and outermost operations (e.g. f(x))",
+    "derivative": "Derivative marks and differentiated functions (e.g. f'(x))",
+    "chain": "Chain rule factors, inner differential stages (e.g. g'(x), y')",
+    "orange": "Big operators, sums, integrals, and limits (e.g. \\sum, \\int, \\lim)",
+    "dot": "Multiplication symbols, dots, and cross products (e.g. \\cdot, \\times)",
+    "relation": "Equals, inequalities, and comparison symbols (e.g. =, <, \\le)",
+    "arrow": "Implication and mapping arrows (e.g. \\to, \\implies)",
+    "set": "Set theory relations and operators (e.g. \\in, \\subset)",
+    "spacing": "LaTeX spacing and alignment commands (e.g. \\quad, \\,)",
+    "upper": "Matrix exponents, transposes, and top indices (e.g. A^T, M^{-1})",
+    "parameter": "Inner function parameters and indexed variables",
+    "unit": "Physical units and dimensions (e.g. m/s, \\mu m, ^\\circ C)"
+  },
+  "_unicode_descriptions": {
+    "greek_style": "Greek letter typography: 'plane1' (Mathematical Italic: 𝝍, 𝝰) or 'standard' (ψ, α)",
+    "convert_definite_integrals": "Convert bounded integrals like \\int_a^b to ∫_a^b (default: false to preserve vertical TeX limits)",
+    "convert_bounded_operators": "Convert bounded summations/products like \\sum_{i=1}^n to ∑_{i=1}^n (default: false)",
+    "convert_prose_to_unicode": "Convert LaTeX commands like \\psi to 𝜓 in regular prose outside math blocks (default: false to protect prose)",
+    "convert_prose_to_latex": "Convert Unicode symbols like 𝝍 back to \\psi in regular prose outside math blocks (default: false)"
+  }
+}

@@ -55,6 +55,8 @@ def _has_semantic_options(options: ColorMathOptions | None) -> bool:
             or options.color_differentials
             or options.color_braket
             or options.color_dimensionless
+            or options.color_quantum_operators
+            or options.field in ("quantum", "physics")
         )
     )
 

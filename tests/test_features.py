@@ -692,6 +692,90 @@ $$"""
         self.assertEqual(transform_document(converted_anki, "anki"), converted_anki)
         self.assertEqual(transform_document(converted_anki, "anki", undo=True), anki_doc)
 
+    def test_math_boundary_and_psi_coloring(self) -> None:
+        opts = ColorMathOptions.extended()
+        doc = (
+            "Here is 𝝍 and \\psi outside math in prose.\n\n"
+            "$$𝝍  \\psi$$\n\n"
+            "Inline test: $𝝍  \\psi$ is inside math, but 𝝍 and \\psi are outside.\n"
+        )
+        converted = transform_document(doc, "markdown", options=opts)
+
+        # In math block: both 𝝍 and \\psi receive \\textcolor{#bb9af7}{...}
+        self.assertIn(r"$$\textcolor{#bb9af7}{𝝍}  \textcolor{#bb9af7}{\psi}$$", converted)
+
+        # In inline math: both 𝝍 and \\psi receive \\textcolor{#bb9af7}{...}
+        self.assertIn(r"$\textcolor{#bb9af7}{𝝍}  \textcolor{#bb9af7}{\psi}$", converted)
+
+        # Outside math: \\textcolor must never appear
+        lines = converted.split("\n")
+        prose_parts = [lines[0], lines[4].split("$")[0], lines[4].split("$")[2]]
+        for part in prose_parts:
+            self.assertNotIn(r"\textcolor", part)
+
+    def test_bare_braces_depth_and_unmatched(self) -> None:
+        from color_math.parsers.delimiters import find_delimiter_scan, collect_delimiter_spans
+
+        # 1. Depth counting with bare braces
+        res = find_delimiter_scan(r"\frac{a}{b}", include_bare_braces=True)
+        self.assertEqual(len(res.pairs), 2)
+        self.assertEqual(len(res.unmatched), 0)
+        self.assertEqual(res.pairs[0].open_item.delim_type, "bare_brace")
+        self.assertEqual(res.pairs[1].open_item.delim_type, "bare_brace")
+
+        # Nested bare braces: \frac{x^{2}}{y}
+        res_nested = find_delimiter_scan(r"\frac{x^{2}}{y}", include_bare_braces=True)
+        self.assertEqual(len(res_nested.pairs), 3)
+        # Check that outer {x^{2}} is depth 0 and inner {2} is depth 1
+        depths = [p.depth for p in res_nested.pairs]
+        self.assertIn(0, depths)
+        self.assertIn(1, depths)
+
+        # 2. Unmatched brace detection
+        unmatched_scan = find_delimiter_scan(r"\frac{a}{b", include_bare_braces=True)
+        self.assertEqual(len(unmatched_scan.pairs), 1)
+        self.assertEqual(len(unmatched_scan.unmatched), 1)
+        self.assertEqual(unmatched_scan.unmatched[0].delim_type, "bare_brace")
+
+        # 3. Bake safety guard: for_latex_wrap=True must NEVER include bare braces in spans
+        bake_spans = collect_delimiter_spans(
+            r"\frac{a}{b}",
+            for_latex_wrap=True,
+            include_bare_braces=True,
+        )
+        self.assertEqual(len(bake_spans), 0)
+
+        # But for non-latex wrap (editor/AST inspection), bare braces are included
+        inspect_spans = collect_delimiter_spans(
+            r"\frac{a}{b}",
+            for_latex_wrap=False,
+            include_bare_braces=True,
+        )
+        self.assertEqual(len(inspect_spans), 4)  # 2 pairs * 2
+
+        # 4. Environment head skipping
+        array_expr = r"\begin{array}{cc|c} a & b \end{array}"
+        array_scan = find_delimiter_scan(array_expr, include_bare_braces=True)
+        # Environment declaration braces should not be detected as loose bare braces
+        self.assertEqual(len(array_scan.unmatched), 0)
+
+    def test_custom_definitions_integration(self) -> None:
+        from color_math.converters.generic import color_latex_body
+        from color_math.config import ColorMathOptions
+
+        opts = ColorMathOptions.all_enabled()
+        # Custom function relu(x)
+        res_fn = color_latex_body(r"\relu(x)", options=opts)
+        self.assertIn(r"\textcolor{#7aa2f7}{\relu}", res_fn)
+
+        # Custom constant \kB
+        res_const = color_latex_body(r"\kB T", options=opts)
+        self.assertIn(r"\textcolor{#e0af68}{\kB}", res_const)
+
+        # Custom relation \coloneqq
+        res_rel = color_latex_body(r"f(x) \coloneqq x^2", options=opts)
+        self.assertIn(r"\textcolor{white}{\coloneqq}", res_rel)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,16 +20,16 @@ GREEK_LETTERS = (
     r"lambda|mu|nu|xi|pi|varpi|rho|varrho|sigma|varsigma|tau|upsilon|phi|varphi|chi|psi|omega|"
     r"Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega"
 )
-DIFF_VAR = r"(?:\\(?:" + GREEK_LETTERS + r")|[a-zA-Z])"
+DIFF_VAR = r"(?:\\(?:" + GREEK_LETTERS + r")|[a-zA-Z]|[\u0370-\u03FF\U0001D400-\U0001D7FF])"
 
 
 DERIV_FRAC_RE = re.compile(
-    r"\\frac\s*\{\s*(?:d|\\partial|\\mathrm\{d\})(?:\^\{?\d+\}?)?\s*(?:" + DIFF_VAR + r")?\s*\}\s*\{\s*(?:d|\\partial|\\mathrm\{d\})\s*" + DIFF_VAR + r"(?:\^\{?\d+\}?)?(?:\s*(?:d|\\partial|\\mathrm\{d\})\s*" + DIFF_VAR + r")*\s*\}"
+    r"\\(?:dfrac|tfrac|frac)\s*\{\s*(?:d|\\partial|\\mathrm\{d\}|∂)(?:\^\{?\d+\}?)?\s*(?:" + DIFF_VAR + r")?\s*\}\s*\{\s*(?:d|\\partial|\\mathrm\{d\}|∂)\s*" + DIFF_VAR + r"(?:\^\{?\d+\}?)?(?:\s*(?:d|\\partial|\\mathrm\{d\}|∂)\s*" + DIFF_VAR + r")*\s*\}"
 )
 DIFF_RE = re.compile(
-    r"(?:^|[\s+\-=*({]|\[|\\,|\\:|\\;|\\quad|\\qquad|~)(\s*(?:d|\\partial|\\mathrm\{d\}|\\delta)\s*" + DIFF_VAR + r"(?![a-zA-Z0-9_({])(?:\^\{?\d+\}?)?)"
+    r"(?:^|[\s+\-=*({]|\[|\\,|\\:|\\;|\\quad|\\qquad|~)(\s*(?:d|\\partial|\\mathrm\{d\}|\\delta|∂)\s*" + DIFF_VAR + r"(?![a-zA-Z0-9_({])(?:\^\{?\d+\}?)?)"
 )
-D_MATCH_RE = re.compile(r"(?:d|\\partial|\\mathrm\{d\}|\\delta)")
+D_MATCH_RE = re.compile(r"(?:d|\\partial|\\mathrm\{d\}|\\delta|∂)")
 
 
 def find_differential_spans(body: str) -> list[DifferentialSpan]:

@@ -361,7 +361,7 @@ class CLITests(unittest.TestCase):
             cfg_file.write_text(json.dumps({"theme": "catppuccin"}), encoding="utf-8")
 
             with patch.dict("os.environ", {"XDG_CONFIG_HOME": str(tmpdir), "APPDATA": str(tmpdir)}):
-                palette, _ = load_config(path=None)
+                palette, _, _ = load_config(path=None)
                 self.assertEqual(palette["main"], THEMES["catppuccin"]["main"])
 
     def test_keyboard_interrupt_handling(self) -> None:

@@ -25,10 +25,10 @@ NUMERIC_FRACTION_RE = re.compile(
 )
 PLAIN_COEFFICIENT_RE = re.compile(r"[A-Za-z]")
 ADDITIVE_SEPARATOR_RE = re.compile(
-    r"[+\-=<>]|\\(?:pm|mp|leq|geq|neq|approx|sim|equiv)(?![A-Za-z])"
+    r"[+\-=<>]|\\(?:pm|mp|leq|geq|neq|approx|sim|equiv)(?![A-Za-z])|[±∓≤≥≠≈∼≡]"
 )
 MULTIPLICATIVE_GAP_RE = re.compile(
-    r"(?:\s|[·*]|\\(?:cdot|times|,|:|;|!|quad|qquad)(?![A-Za-z]))*"
+    r"(?:\s|[·*×✕]|\\(?:cdot|times|,|:|;|!|quad|qquad)(?![A-Za-z]))*"
 )
 
 
@@ -39,12 +39,25 @@ def _compact(value: str) -> str:
 def _is_derivative_prefix(value: str) -> bool:
     compact = _compact(value)
     return compact.startswith(
-        (r"\frac{d}{d", r"\dfrac{d}{d", r"\tfrac{d}{d")
+        (
+            r"\frac{d}{d",
+            r"\dfrac{d}{d",
+            r"\tfrac{d}{d",
+            r"\frac{\mathrm{d}}{\mathrm{d",
+            r"\dfrac{\mathrm{d}}{\mathrm{d",
+            r"\tfrac{\mathrm{d}}{\mathrm{d",
+            r"\frac{\partial}{\partial",
+            r"\dfrac{\partial}{\partial",
+            r"\tfrac{\partial}{\partial",
+            r"\frac{∂}{∂",
+            r"\dfrac{∂}{∂",
+            r"\tfrac{∂}{∂",
+        )
     )
 
 
 def _is_prime(value: str) -> bool:
-    return bool(re.match(r"(?:[A-Za-z]|\\[A-Za-z]+)'", value.lstrip()))
+    return bool(re.match(r"(?:[A-Za-z]|\\[A-Za-z]+|[\u0370-\u03FF\U0001D400-\U0001D7FF])'", value.lstrip()))
 
 
 def _is_numeric(value: str) -> bool:
@@ -225,6 +238,10 @@ def convert_derivative_line(source: str) -> str | None:
     clean_source = uncolor_text(source) if contains_color_wrapper(source) else source
     block = parse_math_block(clean_source)
     if block is None:
+        return None
+
+    # Delegate matrix/tensor equations to convert_matrix_block
+    if re.search(r"\\(?:mathbf|mathcal|begin\s*\{(?:Bmatrix|Vmatrix|array|bmatrix|matrix|pmatrix|smallmatrix|vmatrix)\})", block.body):
         return None
 
     body_start = skip_ignorable(block.body, 0, len(block.body))

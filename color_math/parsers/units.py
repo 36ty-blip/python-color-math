@@ -32,7 +32,7 @@ DEG_RE = re.compile(r"\^\s*\\circ\s*(?:\\(?:text|mathrm)\s*\{[A-Za-z]+\}|[A-Za-z
 NUM_UNIT_RE = re.compile(
     r"(?:^|[^A-Za-z0-9_])(?:\d+(?:\.\d+)?|\.\d+)(?:\s*(?:\\times|\\cdot|·|\*)\s*10\^\{?[+-]?\d+\}?|\s*[eE][+-]?\d+)?(?:\s*|\,|\:|\;|\s*\\quad|\s*\\qquad|~)*"
     r"("
-    r"\\(?:text|mathrm)\s*\{[^}]+\}(?:\^\{?-?\d+\}?)?"
+    r"\\(?:text|mathrm)\s*\{[A-Za-z°℃%Ωμ/^0-9\s.\-]+?\}(?:\^\{?-?\d+\}?)?"
     r"|"
     r"\\mu\s*(?:" + SAFE_MICRO_UNITS + r"|" + AMBIGUOUS_MICRO_UNITS + r")(?![A-Za-z0-9_])(?:\^\{?-?\d+\}?)?"
     r"|"
@@ -49,20 +49,22 @@ IS_UNIT_RE = re.compile(
 
 
 def find_unit_spans(body: str) -> list[UnitSpan]:
-    """Scans LaTeX math body to identify physical unit spans."""
+    """Finds all unit spans within a math body string."""
     spans: list[UnitSpan] = []
 
-    def add_span(start: int, end: int, text: str) -> None:
-        if start >= end:
-            return
-        if not any(start < s.end and end > s.start for s in spans):
-            spans.append(UnitSpan(start, end, text))
+    def add_span(start: int, end: int, text: str):
+        for s in spans:
+            if not (end <= s.start or start >= s.end):
+                return
+        spans.append(UnitSpan(start, end, text))
 
     # 1a. \mu\text{...} or \mu\mathrm{...}
     for m in MICRO_TEXT_RE.finditer(body):
-        add_span(m.start(), m.end(), m.group(0))
+        inner = m.group(1).strip()
+        if IS_UNIT_RE.match(inner):
+            add_span(m.start(), m.end(), m.group(0))
 
-    # 1b. Bare \mu with safe micro units: \mu m, \mu s, etc.
+    # 1b. Bare \mu with safe micro units: \mu m, \mu s, \mu g, \mu\Omega, etc.
     for m in SAFE_MICRO_RE.finditer(body):
         add_span(m.start(), m.end(), m.group(0))
 
@@ -74,6 +76,10 @@ def find_unit_spans(body: str) -> list[UnitSpan]:
     for m in NUM_UNIT_RE.finditer(body):
         full_match = m.group(0)
         unit_part = m.group(1)
+        if unit_part.startswith(("\\text", "\\mathrm")):
+            inner_m = re.search(r"\{([^{}]+)\}", unit_part)
+            if not inner_m or not IS_UNIT_RE.match(inner_m.group(1).strip()):
+                continue
         unit_offset = full_match.rfind(unit_part)
         unit_start = m.start() + unit_offset
         unit_end = unit_start + len(unit_part)

@@ -5,7 +5,7 @@ from .config import ColorMathOptions
 from .converters.block import convert_text
 from .undo import uncolor_text
 
-__version__ = "0.2.4"
+__version__ = "0.2.12"
 
 __all__ = [
     "__version__",

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 from pathlib import Path
 
 from .config import ColorMathOptions
 from .converters.block import convert_math_block, convert_text
+from .parsers.frontmatter import detect_note_field
 from .undo import uncolor_fragment, uncolor_text
 from .utils.latex_helpers import read_comment_end, read_verb_end
 
@@ -80,7 +82,18 @@ def transform_document(
         return text
 
     if format_name == "markdown":
-        return uncolor_text(text) if undo else convert_text(text, palette=palette, options=options)
+        if undo:
+            return uncolor_text(text)
+        opts = options
+        detection = detect_note_field(text)
+        if detection.is_quantum:
+            if opts is None:
+                opts = ColorMathOptions(color_quantum_operators=True, field="quantum")
+            else:
+                opts = copy.copy(opts)
+                opts.color_quantum_operators = True
+                opts.field = "quantum"
+        return convert_text(text, palette=palette, options=opts)
     if format_name == "anki":
         return _transform_delimited(text, ANKI_DELIMITERS, undo, palette=palette, options=options)
     if format_name == "tex":

@@ -10,6 +10,8 @@ from ..config import (
     BARE_FUNCTIONS,
     MATH_ACCENTS,
     FONT_STYLE_MACROS,
+    NON_SLASH_MATH_CONSTANTS,
+    NON_SLASH_MATH_PARAMETERS,
 )
 from ..utils.spans import ColorSpan
 from ..utils.latex_helpers import read_color_command, read_braced, skip_environment_head
@@ -188,6 +190,17 @@ def collect_taxonomy_spans(
                         continue
 
                 idx = cmd_end
+                continue
+        else:
+            ch = body[idx]
+            if ch in NON_SLASH_MATH_CONSTANTS:
+                spans.append(ColorSpan(idx, idx + 1, pal.get("orange", "#e0af68"), priority=22))
+                idx += 1
+                continue
+            elif ch in NON_SLASH_MATH_PARAMETERS:
+                color = pal.get("parameter", pal.get("derivative", "#bb9af7"))
+                spans.append(ColorSpan(idx, idx + 1, color, priority=20))
+                idx += 1
                 continue
 
         idx += 1

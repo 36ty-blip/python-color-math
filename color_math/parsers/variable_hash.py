@@ -106,14 +106,14 @@ def collect_variable_spans(
                             braced = read_braced(body, target_start)
                             if braced is not None:
                                 inner = braced.content
-                                base_m = re.search(r"[a-zA-Z]", inner)
+                                base_m = re.search(r"[a-zA-Z]|[\u0370-\u03FF\U0001D400-\U0001D7FF]", inner)
                                 base_letter = base_m.group(0) if base_m else "x"
                                 color = hash_string_to_color(base_letter, pal)
                                 spans.append(ColorSpan(idx, braced.end, color, priority=15))
                                 idx = braced.end
                                 continue
                         else:
-                            let_m = re.match(r"^[a-zA-Z]('*)*", body[target_start:])
+                            let_m = re.match(r"^(?:[a-zA-Z]|[\u0370-\u03FF\U0001D400-\U0001D7FF])('*)*", body[target_start:])
                             if let_m:
                                 full_var = let_m.group(0)
                                 base_letter = full_var.replace("'", "")
@@ -198,8 +198,8 @@ def collect_variable_spans(
             idx += 1
             continue
 
-        # Single letter variables (optionally with prime): x, y, z, t, x', y''
-        var_m = re.match(r"^[a-zA-Z]('*)*", body[idx:])
+        # Single letter variables (optionally with prime): x, y, z, t, x', y'', 𝜓, ψ, θ
+        var_m = re.match(r"^(?:[a-zA-Z]|[\u0370-\u03FF\U0001D400-\U0001D7FF])('*)*", body[idx:])
         if var_m:
             full_var = var_m.group(0)
             base_letter = full_var.replace("'", "")

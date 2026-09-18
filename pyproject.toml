@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-color-math"
-version = "0.2.4"
+version = "0.2.12"
 description = "A fast, local semantic LaTeX colorizer for Markdown, Jupyter, and LaTeX math equations."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -53,7 +53,7 @@ color-math-mcp = "color_math.mcp:main"
 include-package-data = true
 
 [tool.setuptools.package-data]
-color_math = ["py.typed"]
+color_math = ["py.typed", "*.json"]
 
 [tool.setuptools.packages.find]
 include = ["color_math*", "python_color_math*"]
