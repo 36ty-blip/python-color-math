@@ -656,7 +656,7 @@ class ColorMathOptions:
         return cls(
             enable_taxonomy=True,
             rainbow_delimiters=True,
-            variable_data_flow=False,
+            variable_data_flow=True,
             color_units=True,
             color_differentials=True,
             color_braket=True,
@@ -871,7 +871,7 @@ def get_bundled_default_config() -> dict[str, object]:
         "_comment": "Python Color Math factory default configuration",
         "theme": "default",
         "colors": dict(DEFAULT_COLORS),
-        "options": asdict(ColorMathOptions()),
+        "options": asdict(ColorMathOptions.extended()),
         "unicode": dict(DEFAULT_UNICODE_CONFIG),
         "_role_descriptions": ROLE_DESCRIPTIONS,
     }
@@ -887,7 +887,7 @@ def load_config(
     Returns (palette_dict, ColorMathOptions, unicode_config_dict).
     """
     palette = dict(DEFAULT_COLORS)
-    options = ColorMathOptions()
+    options = ColorMathOptions.extended()
     unicode_config = dict(DEFAULT_UNICODE_CONFIG)
 
     target = path

@@ -18,7 +18,7 @@
   "options": {
     "enable_taxonomy": true,
     "rainbow_delimiters": true,
-    "variable_data_flow": false,
+    "variable_data_flow": true,
     "color_units": true,
     "color_differentials": true,
     "color_braket": true,
