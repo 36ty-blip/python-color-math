@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "python-color-math"
-version = "0.2.13"
+version = "0.2.14"
 description = "A fast, local semantic LaTeX colorizer for Markdown, Jupyter, and LaTeX math equations."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,7 +35,8 @@ dependencies = []
 [project.optional-dependencies]
 mcp = ["mcp>=1.0.0"]
 tutorial = ["rich>=13.0.0", "questionary>=2.0.0"]
-all = ["mcp>=1.0.0", "rich>=13.0.0", "questionary>=2.0.0"]
+jupyter = ["ipython>=8.0.0"]
+all = ["mcp>=1.0.0", "rich>=13.0.0", "questionary>=2.0.0", "ipython>=8.0.0"]
 
 [project.urls]
 Homepage = "https://github.com/36ty-blip/python-color-math"
