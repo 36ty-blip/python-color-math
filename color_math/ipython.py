@@ -257,6 +257,17 @@ if HAS_IPYTHON:
             if self._orig_math_repr is not None:
                 Math._repr_latex_ = self._orig_math_repr  # type: ignore[assignment]
             self._auto_hook_active = False
+else:
+    class ColorMath:  # type: ignore[no-redef]
+        """Fallback when IPython is not installed."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise ImportError(
+                "IPython is required to use ColorMath. Install it with 'pip install ipython' or 'pip install python-color-math[jupyter]'."
+            )
+
+    class ColorMathMagics:  # type: ignore[no-redef]
+        pass
 
 
 def load_ipython_extension(ipython: Any) -> None:

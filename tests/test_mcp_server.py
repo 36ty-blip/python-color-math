@@ -5,6 +5,9 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+import pytest
+
+pytest.importorskip("mcp")
 
 from color_math.mcp_server import create_mcp_server
 

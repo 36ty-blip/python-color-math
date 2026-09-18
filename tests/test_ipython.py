@@ -1,6 +1,8 @@
-"""Tests for IPython and Jupyter integrations."""
-
 import unittest
+import pytest
+
+pytest.importorskip("IPython")
+
 from IPython.core.interactiveshell import InteractiveShell
 from IPython.display import Math
 
