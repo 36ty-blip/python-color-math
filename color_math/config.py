@@ -610,26 +610,82 @@ RAINBOW_DELIMITER_COLORS: list[str] = [
 
 
 VARIABLE_HASH_PALETTE: list[str] = [
-    "#7aa2f7",  # Tokyo Blue
-    "#7dcfff",  # Tokyo Cyan
-    "#bb9af7",  # Tokyo Purple
-    "#f7768e",  # Tokyo Pink
-    "#e0af68",  # Tokyo Orange/Gold
-    "#9ece6a",  # Tokyo Green
-    "#2ac3de",  # Light Cyan
-    "#ff9e64",  # Peach
+    "#7aa2f7",  # 0: Tokyo Blue
+    "#7dcfff",  # 1: Tokyo Cyan
+    "#bb9af7",  # 2: Tokyo Purple
+    "#f7768e",  # 3: Tokyo Pink
+    "#e0af68",  # 4: Tokyo Orange/Gold
+    "#9ece6a",  # 5: Tokyo Green
+    "#2ac3de",  # 6: Light Cyan/Teal
+    "#ff9e64",  # 7: Peach
 ]
+
+CANONICAL_VARIABLE_SLOTS: dict[str, int] = {
+    # 1. Spatial 3D Cartesian coordinates: guaranteed maximum pairwise separation
+    "x": 0,  # Tokyo Blue
+    "y": 4,  # Tokyo Gold
+    "z": 5,  # Tokyo Green
+
+    # 2. Coefficients: high-contrast against (x, y, z) and within the group
+    "a": 2,  # Tokyo Purple
+    "b": 3,  # Tokyo Pink
+    "c": 6,  # Light Cyan/Teal
+    "d": 7,  # Peach
+
+    # 3. Parameters / Velocity / Substitutions
+    "u": 1,  # Tokyo Cyan
+    "v": 2,  # Tokyo Purple
+    "w": 4,  # Tokyo Gold
+
+    # 4. Discrete summation & matrix indices
+    "i": 4,  # Tokyo Gold
+    "j": 0,  # Tokyo Blue
+    "k": 3,  # Tokyo Pink
+    "l": 5,  # Tokyo Green
+    "m": 2,  # Tokyo Purple
+    "n": 6,  # Light Cyan/Teal
+
+    # 5. Calculus & Analysis duals
+    "s": 3,  # Tokyo Pink
+    "t": 1,  # Tokyo Cyan
+    "p": 0,  # Tokyo Blue
+    "q": 7,  # Peach
+
+    # 6. Thermodynamics & State
+    "P": 3,  # Tokyo Pink
+    "V": 0,  # Tokyo Blue
+    "T": 4,  # Tokyo Gold
+
+    # 7. Greek letters & canonical duals
+    "\\theta": 4, "θ": 4, "𝜗": 4, "ϑ": 4,
+    "\\phi": 2, "\\varphi": 2, "ϕ": 2, "φ": 2, "𝜙": 2, "𝜑": 2,
+    "\\psi": 2, "ψ": 2, "𝜓": 2,
+    "\\epsilon": 2, "\\varepsilon": 2, "ε": 2, "𝜀": 2,
+    "\\delta": 5, "δ": 5, "𝛿": 5,
+    "\\alpha": 2, "α": 2, "𝛼": 2,
+    "\\beta": 3, "β": 3, "𝛽": 3,
+    "\\gamma": 5, "γ": 5, "𝛾": 5,
+    "\\omega": 7, "ω": 7, "𝜔": 7,
+    "\\lambda": 6, "λ": 6, "𝜆": 6,
+}
+
+
+def hash_string_to_slot(s: str, num_slots: int = 8) -> int:
+    """Dispersive hash mapping identifiers to palette slots with golden ratio dispersion."""
+    if s in CANONICAL_VARIABLE_SLOTS:
+        return CANONICAL_VARIABLE_SLOTS[s] % num_slots
+
+    # Knuth 32-bit multiplicative hash with golden ratio constant 2654435761 (0x9E3779B9)
+    h = 0
+    for char in s:
+        h = ((h << 5) - h + ord(char)) & 0xFFFFFFFF
+    return ((h * 2654435761) & 0xFFFFFFFF) % num_slots
 
 
 def hash_string_to_color(s: str, palette: list[str] = VARIABLE_HASH_PALETTE) -> str:
-    """Deterministic string hashing for variable data-flow coloring."""
-    h = 0
-    for char in s:
-        h = (h * 31 + ord(char)) & 0xFFFFFFFF
-        if h >= 0x80000000:
-            h -= 0x100000000
-    idx = abs(h) % len(palette)
-    return palette[idx]
+    """Deterministic string hashing for variable data-flow coloring with harmonic disambiguation."""
+    slot = hash_string_to_slot(s, len(palette))
+    return palette[slot]
 
 
 @dataclass
