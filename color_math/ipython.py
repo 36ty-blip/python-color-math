@@ -72,7 +72,7 @@ if HAS_IPYTHON:
         @line_magic("color_math")
         @line_magic("colormath")
         def color_math_line(self, line: str) -> Any:
-            """Colorize and display a single LaTeX formula.
+            r"""Colorize and display a single LaTeX formula.
 
             Usage:
                 %color_math \int_0^1 x^2 dx = \frac{1}{3}
@@ -97,7 +97,7 @@ if HAS_IPYTHON:
         @cell_magic("color_math")
         @cell_magic("colormath")
         def color_math_cell(self, line: str, cell: str) -> Any:
-            """Colorize and display a cell containing LaTeX or Markdown math.
+            r"""Colorize and display a cell containing LaTeX or Markdown math.
 
             Usage:
                 %%color_math
