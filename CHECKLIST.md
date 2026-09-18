@@ -94,5 +94,11 @@
 - [x] Custom quantum operators: `\hat{H}`, `\hat{p}`, `\hat{x}`, `\hat{a}`, `\hat{a}^\dagger`, etc.
 - [x] Custom relations and assignment operators: `\coloneqq`, `\eqqcolon`, `\triangleq`
 - [x] Mathematical Plane 1 Greek Unicode support: `𝜓` (`U+1D713`), `𝝍` (`U+1D74D`)
-- [x] Full unit test suite (144 tests passing)
-- [x] Version tracking (`0.2.12`)
+- [x] IPython extension loader (`%load_ext color_math`)
+- [x] IPython line magic (`%color_math \int x^2 dx`)
+- [x] IPython cell magic (`%%color_math` for markdown & LaTeX cells)
+- [x] Drop-in `ColorMath` display object inheriting from `IPython.display.Math`
+- [x] Auto-display formatting hook (`%color_math_auto on` for `Math._repr_latex_`)
+- [x] Jupyter Server / Notebook 7 `FileContentsManager.pre_save_hook` automated formatter
+- [x] Full unit test suite (148 tests passing)
+- [x] Version tracking (`0.2.13`)
