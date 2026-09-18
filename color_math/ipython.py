@@ -7,10 +7,17 @@ Notebook, and Google Colab via `%load_ext color_math`.
 from __future__ import annotations
 
 import shlex
+from pathlib import Path
 from typing import Any
 
 from .adapters import transform_document
-from .config import ColorMathOptions, THEMES
+from .config import (
+    ColorMathOptions,
+    THEMES,
+    load_config,
+    get_global_config_path,
+    save_default_config,
+)
 from .converters.block import convert_math_block, convert_text
 
 try:
@@ -69,7 +76,12 @@ if HAS_IPYTHON:
             super().__init__(shell)
             self._auto_hook_active = False
             self._orig_math_repr = None
-            self._options = ColorMathOptions.extended()
+            palette, options, _ = load_config()
+            local_or_global = Path(".colormath.json").exists() or bool(
+                get_global_config_path() and get_global_config_path().exists()
+            )
+            self._palette = palette
+            self._options = options if local_or_global else ColorMathOptions.extended()
 
         def _parse_magic_args(self, arg_str: str) -> tuple[str | None, ColorMathOptions, str]:
             """Parse leading flags (--theme, -v, --variables) without corrupting LaTeX backslashes."""
@@ -163,6 +175,38 @@ if HAS_IPYTHON:
             else:
                 status = "ENABLED" if self._options.variable_data_flow else "DISABLED"
                 print(f"Color Math: Variable data-flow coloring is currently {status}.")
+
+        @line_magic("color_math_config")
+        def color_math_config(self, line: str) -> None:
+            """Inspect or initialize Color Math configuration.
+
+            Usage:
+                %color_math_config
+                %color_math_config --init
+                %color_math_config --reload
+            """
+            raw = line.strip().lower()
+            if "--init" in raw:
+                target = Path(".colormath.json")
+                save_default_config(target)
+                print(f"Color Math: Created config template at '{target.resolve()}'.")
+                self._palette, self._options, _ = load_config(target)
+                return
+            if "--reload" in raw:
+                self._palette, self._options, _ = load_config()
+                print("Color Math: Configuration reloaded.")
+                return
+
+            local_path = Path(".colormath.json")
+            global_path = get_global_config_path()
+            print("Color Math Configuration:")
+            print(f"  Local config:  {local_path.resolve()} ({'exists' if local_path.exists() else 'not found'})")
+            if global_path:
+                print(f"  Global config: {global_path} ({'exists' if global_path.exists() else 'not found'})")
+            print(f"  Variables:     {'ENABLED' if self._options.variable_data_flow else 'DISABLED'}")
+            print(f"  Taxonomy:      {'ENABLED' if self._options.enable_taxonomy else 'DISABLED'}")
+            print(f"  Delimiters:    {'ENABLED' if self._options.rainbow_delimiters else 'DISABLED'}")
+            print(f"  Auto-display:  {'ENABLED' if self._auto_hook_active else 'DISABLED'}")
 
         @line_magic("color_math_auto")
         def color_math_auto(self, line: str) -> None:
