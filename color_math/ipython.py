@@ -37,10 +37,11 @@ def colormath(
     If is_fragment is True, text is treated as raw math without $ delimiters.
     """
     active_palette = THEMES.get(theme) if theme else palette
+    opts = options if options is not None else ColorMathOptions.extended()
     if is_fragment:
-        converted = convert_math_block(f"$${text}$$", palette=active_palette, options=options)
+        converted = convert_math_block(f"$${text}$$", palette=active_palette, options=opts)
         return converted[2:-2]
-    return convert_text(text, palette=active_palette, options=options)
+    return convert_text(text, palette=active_palette, options=opts)
 
 
 if HAS_IPYTHON:
@@ -68,6 +69,46 @@ if HAS_IPYTHON:
             super().__init__(shell)
             self._auto_hook_active = False
             self._orig_math_repr = None
+            self._options = ColorMathOptions.extended()
+
+        def _parse_magic_args(self, arg_str: str) -> tuple[str | None, ColorMathOptions, str]:
+            """Parse leading flags (--theme, -v, --variables) without corrupting LaTeX backslashes."""
+            theme = None
+            opts = ColorMathOptions(
+                enable_taxonomy=self._options.enable_taxonomy,
+                rainbow_delimiters=self._options.rainbow_delimiters,
+                variable_data_flow=self._options.variable_data_flow,
+                color_units=self._options.color_units,
+                color_differentials=self._options.color_differentials,
+                color_braket=self._options.color_braket,
+                color_dimensionless=self._options.color_dimensionless,
+                color_alignment=self._options.color_alignment,
+                color_single_constants=self._options.color_single_constants,
+                normalize_braces=self._options.normalize_braces,
+                extended_functions=self._options.extended_functions,
+                color_quantum_operators=self._options.color_quantum_operators,
+                rainbow_bare_braces=self._options.rainbow_bare_braces,
+                highlight_unmatched_braces=self._options.highlight_unmatched_braces,
+                field=self._options.field,
+            )
+            raw = arg_str.strip()
+            while raw.startswith("-"):
+                if raw.startswith("--theme "):
+                    parts = raw.split(maxsplit=2)
+                    theme = parts[1]
+                    raw = parts[2].strip() if len(parts) > 2 else ""
+                elif raw.startswith("--variables") or raw.startswith("-v"):
+                    opts.variable_data_flow = True
+                    parts = raw.split(maxsplit=1)
+                    raw = parts[1].strip() if len(parts) > 1 else ""
+                elif raw.startswith("--no-variables") or raw.startswith("-nv"):
+                    opts.variable_data_flow = False
+                    parts = raw.split(maxsplit=1)
+                    raw = parts[1].strip() if len(parts) > 1 else ""
+                else:
+                    break
+
+            return theme, opts, raw
 
         @line_magic("color_math")
         @line_magic("colormath")
@@ -77,21 +118,14 @@ if HAS_IPYTHON:
             Usage:
                 %color_math \int_0^1 x^2 dx = \frac{1}{3}
                 %color_math --theme catppuccin \hat{H}\psi = E\psi
+                %color_math -v \hat{H}\psi = E\psi
             """
-            theme = None
-            raw_line = line.strip()
-            if raw_line.startswith("--theme "):
-                parts = shlex.split(raw_line)
-                if len(parts) >= 3 and parts[0] == "--theme":
-                    theme = parts[1]
-                    raw_line = " ".join(parts[2:])
-
+            theme, opts, raw_line = self._parse_magic_args(line)
             if not raw_line:
                 display(Markdown("*Color Math: please provide a LaTeX expression.*"))
                 return None
 
-            # Render as display math
-            colored = colormath(raw_line, theme=theme, is_fragment=True)
+            colored = colormath(raw_line, theme=theme, options=opts, is_fragment=True)
             return Math(colored)
 
         @cell_magic("color_math")
@@ -101,16 +135,34 @@ if HAS_IPYTHON:
 
             Usage:
                 %%color_math
-                Here is the equation:
-                $$ \frac{df}{dx} = f'(x) $$
-            """
-            theme = None
-            args = shlex.split(line.strip()) if line.strip() else []
-            if len(args) >= 2 and args[0] == "--theme":
-                theme = args[1]
+                The equation is:
+                $$ \hat{H}\psi = E\psi $$
 
-            converted = colormath(cell, theme=theme, is_fragment=False)
+                %%color_math -v
+                $$ \hat{H}\psi = E\psi $$
+            """
+            theme, opts, _ = self._parse_magic_args(line)
+            converted = colormath(cell, theme=theme, options=opts, is_fragment=False)
             display(Markdown(converted))
+
+        @line_magic("color_math_variables")
+        def color_math_variables(self, line: str) -> None:
+            """Toggle variable data-flow hash coloring for Latin symbols (E, m, x, etc.).
+
+            Usage:
+                %color_math_variables on
+                %color_math_variables off
+            """
+            cmd = line.strip().lower()
+            if cmd in ("on", "enable", "1", "true"):
+                self._options.variable_data_flow = True
+                print("Color Math: Variable data-flow coloring enabled.")
+            elif cmd in ("off", "disable", "0", "false"):
+                self._options.variable_data_flow = False
+                print("Color Math: Variable data-flow coloring disabled.")
+            else:
+                status = "ENABLED" if self._options.variable_data_flow else "DISABLED"
+                print(f"Color Math: Variable data-flow coloring is currently {status}.")
 
         @line_magic("color_math_auto")
         def color_math_auto(self, line: str) -> None:

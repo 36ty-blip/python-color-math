@@ -101,4 +101,4 @@
 - [x] Auto-display formatting hook (`%color_math_auto on` for `Math._repr_latex_`)
 - [x] Jupyter Server / Notebook 7 `FileContentsManager.pre_save_hook` automated formatter
 - [x] Full unit test suite (148 tests passing)
-- [x] Version tracking (`0.2.14`)
+- [x] Version tracking (`0.2.15`)

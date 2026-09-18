@@ -25,12 +25,12 @@ class TestIPythonIntegration(unittest.TestCase):
 
         # Full markdown test
         md = colormath("Let $f(x) = x^2$.")
-        self.assertIn(r"$\textcolor{#7aa2f7}{f}(x)", md)
+        self.assertIn(r"\textcolor{#7aa2f7}{f}", md)
 
     def test_colormath_display_object(self):
         obj = ColorMath(r"\frac{df}{dx} = f'(x)")
         self.assertIsInstance(obj, Math)
-        self.assertIn(r"\textcolor{#7aa2f7}{f'}(x)", obj.data)
+        self.assertIn(r"\textcolor{#7aa2f7}{f'}", obj.data)
 
     def test_load_and_unload_extension(self):
         load_ipython_extension(self.shell)
