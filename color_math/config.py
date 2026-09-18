@@ -730,6 +730,61 @@ def get_global_config_path() -> Path | None:
     return None
 
 
+def ensure_global_config_exists() -> Path | None:
+    """Ensure that the global configuration file and folder exist on disk.
+
+    Creates the directory and saves the documented default configuration if it
+    does not already exist. Returns the Path to the global config.
+    """
+    path = get_global_config_path()
+    if path is None:
+        return None
+    if not path.exists():
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            save_default_config(path)
+        except OSError:
+            pass
+    return path
+
+
+def open_config_folder(path: Path | None = None) -> bool:
+    """Open the configuration folder in the operating system's file manager."""
+    target = path
+    if target is None:
+        local_candidate = Path(".colormath.json")
+        if local_candidate.exists():
+            target = local_candidate
+        else:
+            target = ensure_global_config_exists() or get_global_config_path()
+
+    if target is None:
+        return False
+
+    folder = target.parent if target.suffix else target
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        if not target.exists() and target.suffix == ".json":
+            save_default_config(target)
+    except OSError:
+        pass
+
+    try:
+        if sys.platform == "win32":
+            os.startfile(folder)
+            return True
+        elif sys.platform == "darwin":
+            import subprocess
+            subprocess.run(["open", str(folder)], check=False)
+            return True
+        else:
+            import subprocess
+            subprocess.run(["xdg-open", str(folder)], check=False)
+            return True
+    except Exception:
+        return False
+
+
 DEFAULT_UNICODE_CONFIG: dict[str, object] = {
     "greek_style": "plane1",
     "convert_definite_integrals": False,
@@ -781,7 +836,7 @@ def load_config(
         if local_candidate.exists():
             target = local_candidate
         else:
-            global_candidate = get_global_config_path()
+            global_candidate = ensure_global_config_exists()
             if global_candidate and global_candidate.exists():
                 target = global_candidate
 

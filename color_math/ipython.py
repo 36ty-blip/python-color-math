@@ -16,6 +16,8 @@ from .config import (
     THEMES,
     load_config,
     get_global_config_path,
+    ensure_global_config_exists,
+    open_config_folder,
     save_default_config,
 )
 from .converters.block import convert_math_block, convert_text
@@ -191,14 +193,22 @@ if HAS_IPYTHON:
                 save_default_config(target)
                 print(f"Color Math: Created config template at '{target.resolve()}'.")
                 self._palette, self._options, _ = load_config(target)
+            raw = line.strip().lower()
+            if raw in ("open", "--open", "explore", "folder"):
+                opened = open_config_folder()
+                if opened:
+                    print("Color Math: Opened configuration folder in file manager.")
+                else:
+                    print("Color Math: Could not open configuration folder automatically.")
                 return
-            if "--reload" in raw:
+
+            if "--reload" in raw or raw == "reload":
                 self._palette, self._options, _ = load_config()
                 print("Color Math: Configuration reloaded.")
                 return
 
             local_path = Path(".colormath.json")
-            global_path = get_global_config_path()
+            global_path = ensure_global_config_exists() or get_global_config_path()
             print("Color Math Configuration:")
             print(f"  Local config:  {local_path.resolve()} ({'exists' if local_path.exists() else 'not found'})")
             if global_path:
@@ -207,6 +217,7 @@ if HAS_IPYTHON:
             print(f"  Taxonomy:      {'ENABLED' if self._options.enable_taxonomy else 'DISABLED'}")
             print(f"  Delimiters:    {'ENABLED' if self._options.rainbow_delimiters else 'DISABLED'}")
             print(f"  Auto-display:  {'ENABLED' if self._auto_hook_active else 'DISABLED'}")
+            print("\nTip: Run '%color_math_config open' to open the configuration folder in your file manager.")
 
         @line_magic("color_math_auto")
         def color_math_auto(self, line: str) -> None:

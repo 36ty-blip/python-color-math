@@ -228,6 +228,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate a .colormath.json config template (optional target path).",
     )
     style_group.add_argument(
+        "--open-config",
+        action="store_true",
+        help="Open configuration folder in system file manager.",
+    )
+    style_group.add_argument(
         "--config",
         type=Path,
         help="Path to custom .colormath.json configuration file.",
@@ -588,6 +593,11 @@ def _main_impl(argv: list[str] | None = None) -> int:
         cfg_path = Path(args.init_config)
         save_default_config(cfg_path)
         sys.stdout.write(f"Created configuration file: {cfg_path}\n")
+        return 0
+
+    if args.open_config:
+        from .config import open_config_folder
+        open_config_folder(args.config)
         return 0
 
     # 3. Load base configuration & theme
