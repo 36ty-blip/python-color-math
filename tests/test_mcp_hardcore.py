@@ -7,10 +7,10 @@ import json
 import tempfile
 import time
 import unittest
-from pathlib import Path
-import pytest
-
-pytest.importorskip("mcp")
+try:
+    import mcp
+except ImportError:
+    raise unittest.SkipTest("mcp not installed")
 
 from color_math.mcp_server import create_mcp_server
 

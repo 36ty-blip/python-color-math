@@ -80,11 +80,9 @@ if HAS_IPYTHON:
             self._auto_hook_active = False
             self._orig_math_repr = None
             palette, options, _ = load_config()
-            local_or_global = Path(".colormath.json").exists() or bool(
-                get_global_config_path() and get_global_config_path().exists()
-            )
+            cfg_path, _ = find_config_path()
             self._palette = palette
-            self._options = options if local_or_global else ColorMathOptions.extended()
+            self._options = options if cfg_path is not None else ColorMathOptions.extended()
 
         def _parse_magic_args(self, arg_str: str) -> tuple[str | None, ColorMathOptions, str]:
             """Parse leading flags (--theme, -v, --variables) without corrupting LaTeX backslashes."""

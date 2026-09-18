@@ -13,7 +13,7 @@ from .undo import uncolor_text
 
 from .ipython import ColorMath, colormath, load_ipython_extension, unload_ipython_extension
 
-__version__ = "0.2.19"
+__version__ = "0.2.20"
 
 __all__ = [
     "__version__",

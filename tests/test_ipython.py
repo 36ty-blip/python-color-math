@@ -1,7 +1,9 @@
 import unittest
-import pytest
-
-pytest.importorskip("IPython")
+try:
+    import pytest
+    pytest.importorskip("IPython")
+except ImportError:
+    pass
 
 from IPython.core.interactiveshell import InteractiveShell
 from IPython.display import Math
