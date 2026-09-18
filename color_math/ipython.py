@@ -14,9 +14,10 @@ from .adapters import transform_document
 from .config import (
     ColorMathOptions,
     THEMES,
+    find_config_path,
+    get_venv_config_path,
+    init_config,
     load_config,
-    get_global_config_path,
-    ensure_global_config_exists,
     open_config_folder,
     save_default_config,
 )
@@ -180,44 +181,63 @@ if HAS_IPYTHON:
 
         @line_magic("color_math_config")
         def color_math_config(self, line: str) -> None:
-            """Inspect or initialize Color Math configuration.
+            """Inspect, create, or open Color Math configuration.
 
             Usage:
-                %color_math_config
-                %color_math_config --init
-                %color_math_config --reload
+                %color_math_config                  - Show current active config and scope
+                %color_math_config init             - Create .colormath.json in current project
+                %color_math_config init --venv      - Create .colormath.json inside active .venv
+                %color_math_config open             - Open the active config file in editor
+                %color_math_config reload           - Reload config from disk
             """
-            raw = line.strip().lower()
-            if "--init" in raw:
-                target = Path(".colormath.json")
-                save_default_config(target)
-                print(f"Color Math: Created config template at '{target.resolve()}'.")
-                self._palette, self._options, _ = load_config(target)
-            raw = line.strip().lower()
-            if raw in ("open", "--open", "explore", "folder"):
-                opened = open_config_folder()
-                if opened:
-                    print("Color Math: Opened configuration folder in file manager.")
+            parts = line.strip().split()
+            subcmd = parts[0].lower() if parts else ""
+
+            if subcmd in ("init", "--init"):
+                scope = "venv" if "--venv" in parts else "project"
+                try:
+                    target = init_config(scope=scope)
+                    print(f"Color Math: Created {scope} configuration at '{target}'.")
+                    self._palette, self._options, _ = load_config(target)
+                except Exception as err:
+                    print(f"Color Math error: {err}")
+                return
+
+            if subcmd in ("open", "--open", "explore", "folder", "edit"):
+                scope = "venv" if "--venv" in parts else "project"
+                success, target = open_config_folder(scope=scope)
+                if success:
+                    print(f"Color Math: Opened '{target}'.")
                 else:
-                    print("Color Math: Could not open configuration folder automatically.")
+                    print(f"Color Math: Configuration file is at '{target}'.")
                 return
 
-            if "--reload" in raw or raw == "reload":
+            if subcmd in ("reload", "--reload"):
                 self._palette, self._options, _ = load_config()
-                print("Color Math: Configuration reloaded.")
+                print("Color Math: Configuration reloaded from disk.")
                 return
 
-            local_path = Path(".colormath.json")
-            global_path = ensure_global_config_exists() or get_global_config_path()
+            active_path, scope = find_config_path()
             print("Color Math Configuration:")
-            print(f"  Local config:  {local_path.resolve()} ({'exists' if local_path.exists() else 'not found'})")
-            if global_path:
-                print(f"  Global config: {global_path} ({'exists' if global_path.exists() else 'not found'})")
+            if active_path:
+                print(f"  Active Config: {active_path} (scope: {scope})")
+            else:
+                print("  Active Config: Built-in defaults (zero disk pollution)")
+
+            venv_cfg = get_venv_config_path()
+            if venv_cfg:
+                status = "configured" if venv_cfg.exists() else "no config in venv"
+                print(f"  Virtual Env:   {venv_cfg.parent.name} ({status})")
+
             print(f"  Variables:     {'ENABLED' if self._options.variable_data_flow else 'DISABLED'}")
             print(f"  Taxonomy:      {'ENABLED' if self._options.enable_taxonomy else 'DISABLED'}")
             print(f"  Delimiters:    {'ENABLED' if self._options.rainbow_delimiters else 'DISABLED'}")
             print(f"  Auto-display:  {'ENABLED' if self._auto_hook_active else 'DISABLED'}")
-            print("\nTip: Run '%color_math_config open' to open the configuration folder in your file manager.")
+            print("\nCommands:")
+            print("  %color_math_config init        - Create project-level .colormath.json")
+            print("  %color_math_config init --venv - Create .colormath.json inside current .venv")
+            print("  %color_math_config open        - Open active config in your editor")
+            print("  %color_math_config reload      - Reload settings from disk")
 
         @line_magic("color_math_auto")
         def color_math_auto(self, line: str) -> None:

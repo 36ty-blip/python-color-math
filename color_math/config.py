@@ -714,31 +714,89 @@ def default_config_dict() -> dict[str, object]:
     }
 
 
-def get_global_config_path() -> Path | None:
-    """Return platform-appropriate XDG / AppData user configuration path."""
-    if sys.platform == "win32":
-        app_data = os.environ.get("APPDATA")
-        if app_data:
-            return Path(app_data) / "color-math" / "config.json"
-    else:
-        xdg_config = os.environ.get("XDG_CONFIG_HOME")
-        if xdg_config:
-            return Path(xdg_config) / "color-math" / "config.json"
-        home = os.environ.get("HOME")
-        if home:
-            return Path(home) / ".config" / "color-math" / "config.json"
+def get_user_home_config_path() -> Path:
+    """Return platform-standard user-level config path (~/.config/color-math/config.json)."""
+    xdg_config = os.environ.get("XDG_CONFIG_HOME")
+    if xdg_config:
+        return Path(xdg_config) / "color-math" / "config.json"
+    return Path.home() / ".config" / "color-math" / "config.json"
+
+
+def get_global_config_path() -> Path:
+    """Backward-compatible alias for user home configuration path."""
+    return get_user_home_config_path()
+
+
+def find_project_config_path(start_dir: Path | None = None) -> Path | None:
+    """Search for .colormath.json in start_dir and walk up parent directories."""
+    curr = (start_dir or Path.cwd()).resolve()
+    for parent in [curr, *curr.parents]:
+        candidate = parent / ".colormath.json"
+        if candidate.exists() and candidate.is_file():
+            return candidate
+        if (parent / ".git").exists():
+            break
     return None
 
 
-def ensure_global_config_exists() -> Path | None:
-    """Ensure that the global configuration file and folder exist on disk.
+def get_venv_config_path() -> Path | None:
+    """Return path to .colormath.json inside active virtual environment, if any."""
+    if sys.prefix != sys.base_prefix or "VIRTUAL_ENV" in os.environ:
+        venv_root = Path(os.environ.get("VIRTUAL_ENV", sys.prefix))
+        return venv_root / ".colormath.json"
+    return None
 
-    Creates the directory and saves the documented default configuration if it
-    does not already exist. Returns the Path to the global config.
+
+def find_config_path(start_dir: Path | None = None) -> tuple[Path | None, str]:
+    """Resolve active configuration path in order of precedence:
+    1. Project hierarchy (.colormath.json in current or parent dirs)
+    2. Active virtual environment (.colormath.json in sys.prefix or $VIRTUAL_ENV)
+    3. User home config (~/.config/color-math/config.json)
+
+    Returns (path_or_none, scope_name).
     """
-    path = get_global_config_path()
-    if path is None:
-        return None
+    proj = find_project_config_path(start_dir)
+    if proj is not None:
+        return proj, "project"
+
+    venv_cfg = get_venv_config_path()
+    if venv_cfg is not None and venv_cfg.exists():
+        return venv_cfg, "venv"
+
+    home_cfg = get_user_home_config_path()
+    if home_cfg.exists():
+        return home_cfg, "home"
+
+    return None, "default"
+
+
+def init_config(scope: str = "project", target_dir: Path | None = None) -> Path:
+    """Initialize a new .colormath.json configuration file.
+
+    Scopes:
+      - 'project': in target_dir or current working directory (isolated per project)
+      - 'venv': inside the active virtual environment (.venv)
+      - 'home': in user home (~/.config/color-math/config.json)
+    """
+    if scope == "venv":
+        venv_cfg = get_venv_config_path()
+        if venv_cfg is None:
+            raise RuntimeError("No active virtual environment detected to initialize config in.")
+        path = venv_cfg
+    elif scope == "home":
+        path = get_user_home_config_path()
+    else:  # project
+        directory = (target_dir or Path.cwd()).resolve()
+        path = directory / ".colormath.json"
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    save_default_config(path)
+    return path
+
+
+def ensure_global_config_exists() -> Path | None:
+    """Legacy helper maintained for backward compatibility."""
+    path = get_user_home_config_path()
     if not path.exists():
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -748,41 +806,43 @@ def ensure_global_config_exists() -> Path | None:
     return path
 
 
-def open_config_folder(path: Path | None = None) -> bool:
-    """Open the configuration folder in the operating system's file manager."""
+def open_config_folder(path: Path | None = None, scope: str = "project") -> tuple[bool, Path]:
+    """Open the configuration file or folder in the operating system's default application."""
     target = path
     if target is None:
-        local_candidate = Path(".colormath.json")
-        if local_candidate.exists():
-            target = local_candidate
+        found, _ = find_config_path()
+        if found is not None:
+            target = found
         else:
-            target = ensure_global_config_exists() or get_global_config_path()
+            target = init_config(scope=scope)
 
-    if target is None:
-        return False
-
-    folder = target.parent if target.suffix else target
-    try:
-        folder.mkdir(parents=True, exist_ok=True)
-        if not target.exists() and target.suffix == ".json":
+    if not target.exists():
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
             save_default_config(target)
-    except OSError:
-        pass
+        except OSError:
+            pass
 
     try:
         if sys.platform == "win32":
-            os.startfile(folder)
-            return True
+            os.startfile(target)
+            return True, target
         elif sys.platform == "darwin":
             import subprocess
-            subprocess.run(["open", str(folder)], check=False)
-            return True
+            subprocess.run(["open", str(target)], check=False)
+            return True, target
         else:
             import subprocess
-            subprocess.run(["xdg-open", str(folder)], check=False)
-            return True
+            subprocess.run(["xdg-open", str(target)], check=False)
+            return True, target
     except Exception:
-        return False
+        try:
+            if sys.platform == "win32":
+                os.startfile(target.parent)
+                return True, target.parent
+        except Exception:
+            pass
+        return False, target
 
 
 DEFAULT_UNICODE_CONFIG: dict[str, object] = {
@@ -821,8 +881,8 @@ def load_config(
     path: Path | None = None,
 ) -> tuple[dict[str, str], ColorMathOptions, dict[str, object]]:
     """
-    Load configuration from path, local '.colormath.json', or global user config.
-    Fault-tolerant: If the user file contains JSON syntax errors or invalid types,
+    Load configuration from path, project hierarchy, active venv, or user home.
+    Fault-tolerant: If the file contains JSON syntax errors or invalid types,
     a warning is emitted and it safely falls back to factory defaults without crashing.
     Returns (palette_dict, ColorMathOptions, unicode_config_dict).
     """
@@ -832,13 +892,7 @@ def load_config(
 
     target = path
     if target is None:
-        local_candidate = Path(".colormath.json")
-        if local_candidate.exists():
-            target = local_candidate
-        else:
-            global_candidate = ensure_global_config_exists()
-            if global_candidate and global_candidate.exists():
-                target = global_candidate
+        target, _ = find_config_path()
 
     if target is None or not target.exists():
         return palette, options, unicode_config

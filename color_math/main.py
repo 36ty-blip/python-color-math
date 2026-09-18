@@ -228,9 +228,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate a .colormath.json config template (optional target path).",
     )
     style_group.add_argument(
+        "--init-venv",
+        action="store_true",
+        help="Generate a .colormath.json inside the active virtual environment (.venv).",
+    )
+    style_group.add_argument(
         "--open-config",
         action="store_true",
-        help="Open configuration folder in system file manager.",
+        help="Open configuration file in default editor/file manager.",
     )
     style_group.add_argument(
         "--config",
@@ -589,7 +594,18 @@ def _main_impl(argv: list[str] | None = None) -> int:
             sys.stdout.write("Reset runtime color palette to factory defaults (Tokyo Night).\n")
         return 0
 
+    if args.init_venv:
+        from .config import init_config
+        try:
+            cfg_path = init_config(scope="venv")
+            sys.stdout.write(f"Created virtual environment configuration: {cfg_path}\n")
+        except Exception as err:
+            sys.stderr.write(f"color-math error: {err}\n")
+            return 1
+        return 0
+
     if args.init_config:
+        from .config import init_config
         cfg_path = Path(args.init_config)
         save_default_config(cfg_path)
         sys.stdout.write(f"Created configuration file: {cfg_path}\n")
@@ -597,7 +613,11 @@ def _main_impl(argv: list[str] | None = None) -> int:
 
     if args.open_config:
         from .config import open_config_folder
-        open_config_folder(args.config)
+        success, path = open_config_folder(args.config)
+        if success:
+            sys.stdout.write(f"Opened configuration: {path}\n")
+        else:
+            sys.stdout.write(f"Configuration file located at: {path}\n")
         return 0
 
     # 3. Load base configuration & theme
